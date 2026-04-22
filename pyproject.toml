@@ -1,0 +1,9 @@
+[project]
+name = "diffusion-path-planning"
+version = "0.1.0"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "Pillow>=10.0",
+    "tqdm>=4.0",
+]
