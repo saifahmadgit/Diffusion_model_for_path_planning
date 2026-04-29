@@ -11,7 +11,7 @@ from tqdm import tqdm
 # PARAMETERS
 # =============================================================================
 
-NUM_SAMPLES = 10000  # total (map, path) pairs to generate
+NUM_SAMPLES = 50000  # total (map, path) pairs to generate
 PATHS_PER_MAP = 3  # multiple paths per map → helps multimodality
 MAP_SIZE = 64  # grid is MAP_SIZE x MAP_SIZE
 NUM_OBSTACLES = 5  # number of rectangular obstacles per map
@@ -26,9 +26,9 @@ OUTPUT_DIR = "data"  # where to save everything
 SEED = 42
 
 # Colors (RGB)
-COLOR_BG = (15, 15, 30)  # dark background
-COLOR_OBSTACLE = (80, 80, 120)  # obstacle fill
-COLOR_PATH = (96, 165, 250)  # path line   (blue)
+COLOR_BG = (128, 128, 128)  # gray background
+COLOR_OBSTACLE = (0, 0, 0)  # black obstacles
+COLOR_PATH = (0, 0, 255)  # path line   (blue)
 COLOR_START = (34, 197, 94)  # start dot   (green)
 COLOR_GOAL = (239, 68, 68)  # goal dot    (red)
 
