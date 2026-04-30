@@ -11,7 +11,7 @@ from tqdm import tqdm
 # PARAMETERS
 # =============================================================================
 
-NUM_SAMPLES = 100  # total (map, path) pairs to generate
+NUM_SAMPLES = 50000  # total (map, path) pairs to generate
 MAP_SIZE = 128  # grid is MAP_SIZE x MAP_SIZE
 NUM_OBSTACLES_MIN = 5  # min number of rectangular obstacles per map
 NUM_OBSTACLES_MAX = 7  # max number of rectangular obstacles per map
