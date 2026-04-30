@@ -11,17 +11,17 @@ from tqdm import tqdm
 # PARAMETERS
 # =============================================================================
 
-NUM_SAMPLES = 50000  # total (map, path) pairs to generate
-PATHS_PER_MAP = 3  # multiple paths per map → helps multimodality
-MAP_SIZE = 64  # grid is MAP_SIZE x MAP_SIZE
-NUM_OBSTACLES = 5  # number of rectangular obstacles per map
-OBSTACLE_MIN_W = 4  # obstacle min width  (in grid cells)
-OBSTACLE_MAX_W = 16  # obstacle max width
-OBSTACLE_MIN_H = 4  # obstacle min height
-OBSTACLE_MAX_H = 20  # obstacle max height
-MIN_START_GOAL_DIST = 20  # manhattan dist between start and goal
+NUM_SAMPLES = 100  # total (map, path) pairs to generate
+MAP_SIZE = 128  # grid is MAP_SIZE x MAP_SIZE
+NUM_OBSTACLES_MIN = 5  # min number of rectangular obstacles per map
+NUM_OBSTACLES_MAX = 7  # max number of rectangular obstacles per map
+OBSTACLE_MIN_W = 16  # obstacle min width  (in grid cells)
+OBSTACLE_MAX_W = 32  # obstacle max width
+OBSTACLE_MIN_H = 16  # obstacle min height
+OBSTACLE_MAX_H = 32  # obstacle max height
+OBSTACLE_MIN_CENTER_DIST = 40  # min distance between obstacle centers
+MIN_START_GOAL_DIST = 30  # manhattan dist between start and goal
 PATH_LINE_WIDTH = 2  # pixel width of drawn path
-START_GOAL_RADIUS = 3  # pixel radius of start/goal dot
 OUTPUT_DIR = "data"  # where to save everything
 SEED = 42
 
@@ -44,15 +44,28 @@ np.random.seed(SEED)
 
 
 def generate_map():
-    """Return binary occupancy grid: 1 = obstacle, 0 = free."""
+    """Return (grid, num_obstacles). Grid: 1 = obstacle, 0 = free."""
     grid = np.zeros((MAP_SIZE, MAP_SIZE), dtype=np.uint8)
-    for _ in range(NUM_OBSTACLES):
+    num_obstacles = random.randint(NUM_OBSTACLES_MIN, NUM_OBSTACLES_MAX)
+    centers = []
+    placed = 0
+    attempts = 0
+    while placed < num_obstacles and attempts < 200:
+        attempts += 1
         w = random.randint(OBSTACLE_MIN_W, OBSTACLE_MAX_W)
         h = random.randint(OBSTACLE_MIN_H, OBSTACLE_MAX_H)
         x = random.randint(0, MAP_SIZE - w - 1)
         y = random.randint(0, MAP_SIZE - h - 1)
+        cx, cy = x + w // 2, y + h // 2
+        # reject if center is too close to any existing obstacle center
+        if any(
+            abs(cx - px) + abs(cy - py) < OBSTACLE_MIN_CENTER_DIST for px, py in centers
+        ):
+            continue
         grid[y : y + h, x : x + w] = 1
-    return grid
+        centers.append((cx, cy))
+        placed += 1
+    return grid, placed
 
 
 def sample_free_cell(grid):
@@ -72,7 +85,10 @@ def far_enough(a, b):
 
 
 def heuristic(a, b):
-    return abs(a[0] - b[0]) + abs(a[1] - b[1])
+    dr = abs(a[0] - b[0])
+    dc = abs(a[1] - b[1])
+    # octile distance: admissible heuristic for 8-directional movement
+    return max(dr, dc) + (1.414 - 1.0) * min(dr, dc)
 
 
 def astar(grid, start, goal):
@@ -160,56 +176,54 @@ def perturb_path(path, grid, noise_std=2.0):
 
 def render_condition(grid, start, goal):
     """
-    Condition image: dark background, gray obstacles,
-    green start dot, red goal dot.
+    Condition image: gray background, black obstacles,
+    green start pixel, red goal pixel.
     Shape: (MAP_SIZE, MAP_SIZE, 3)
     """
     img = Image.new("RGB", (MAP_SIZE, MAP_SIZE), COLOR_BG)
     draw = ImageDraw.Draw(img)
 
-    # obstacles
     for r in range(MAP_SIZE):
         for c in range(MAP_SIZE):
             if grid[r, c] == 1:
                 draw.point((c, r), fill=COLOR_OBSTACLE)
 
-    # start and goal circles
-    def circle(draw, rc, radius, color):
+    # 4x4 block for visibility; A* uses the exact pixel
+    def draw_marker(rc, color):
         r, c = rc
-        draw.ellipse([(c - radius, r - radius), (c + radius, r + radius)], fill=color)
+        draw.rectangle([(c, r), (c + 3, r + 3)], fill=color)
 
-    circle(draw, start, START_GOAL_RADIUS, COLOR_START)
-    circle(draw, goal, START_GOAL_RADIUS, COLOR_GOAL)
+    draw_marker(start, COLOR_START)
+    draw_marker(goal, COLOR_GOAL)
 
     return np.array(img)
 
 
 def render_target(grid, start, goal, path):
     """
-    Target image: same as condition but with the path drawn on top.
+    Target image: same as condition but with the A* path drawn on top.
     Shape: (MAP_SIZE, MAP_SIZE, 3)
     """
     img = Image.new("RGB", (MAP_SIZE, MAP_SIZE), COLOR_BG)
     draw = ImageDraw.Draw(img)
 
-    # obstacles
     for r in range(MAP_SIZE):
         for c in range(MAP_SIZE):
             if grid[r, c] == 1:
                 draw.point((c, r), fill=COLOR_OBSTACLE)
 
-    # path line  (col, row) for PIL
+    # path line — (col, row) for PIL
     if len(path) >= 2:
         pts = [(c, r) for r, c in path]
         draw.line(pts, fill=COLOR_PATH, width=PATH_LINE_WIDTH)
 
-    # start / goal on top of path
-    def circle(draw, rc, radius, color):
+    # 4x4 block for visibility; A* uses the exact pixel
+    def draw_marker(rc, color):
         r, c = rc
-        draw.ellipse([(c - radius, r - radius), (c + radius, r + radius)], fill=color)
+        draw.rectangle([(c, r), (c + 3, r + 3)], fill=color)
 
-    circle(draw, start, START_GOAL_RADIUS, COLOR_START)
-    circle(draw, goal, START_GOAL_RADIUS, COLOR_GOAL)
+    draw_marker(start, COLOR_START)
+    draw_marker(goal, COLOR_GOAL)
 
     return np.array(img)
 
@@ -229,18 +243,17 @@ def main():
     metadata = []  # list of dicts for each sample
     sample_id = 0
     attempts = 0
-    maps_needed = (NUM_SAMPLES + PATHS_PER_MAP - 1) // PATHS_PER_MAP
 
     pbar = tqdm(total=NUM_SAMPLES, desc="Generating samples")
 
     while sample_id < NUM_SAMPLES:
         attempts += 1
-        if attempts > NUM_SAMPLES * 20:
+        if attempts > NUM_SAMPLES * 50:
             print("Too many failed attempts — check parameters.")
             break
 
         # ── generate a new map ──────────────────────────────────────────
-        grid = generate_map()
+        grid, num_obstacles = generate_map()
 
         # ── sample start / goal ─────────────────────────────────────────
         start = sample_free_cell(grid)
@@ -248,41 +261,31 @@ def main():
         if not far_enough(start, goal):
             continue
 
-        # ── base A* path ────────────────────────────────────────────────
-        base_path = astar(grid, start, goal)
-        if base_path is None:
-            continue  # map blocks all routes — skip
-
-        # ── generate PATHS_PER_MAP diverse paths for this map ───────────
-        paths = [base_path]
-        for _ in range(PATHS_PER_MAP - 1):
-            alt = perturb_path(base_path, grid, noise_std=4.0)
-            paths.append(alt)
+        # ── A* path (obstacle-avoiding) ─────────────────────────────────
+        path = astar(grid, start, goal)
+        if path is None:
+            continue  # no valid path exists — skip this map
 
         # ── render and save ─────────────────────────────────────────────
         cond_img = render_condition(grid, start, goal)
+        target_img = render_target(grid, start, goal, path)
 
-        for path in paths:
-            if sample_id >= NUM_SAMPLES:
-                break
+        fname = f"{sample_id:06d}.png"
+        Image.fromarray(cond_img).save(os.path.join(cond_dir, fname))
+        Image.fromarray(target_img).save(os.path.join(target_dir, fname))
 
-            target_img = render_target(grid, start, goal, path)
+        metadata.append(
+            {
+                "id": sample_id,
+                "start": [int(x) for x in start],
+                "goal": [int(x) for x in goal],
+                "path_length": len(path),
+                "num_obstacles": num_obstacles,
+            }
+        )
 
-            fname = f"{sample_id:06d}.png"
-            Image.fromarray(cond_img).save(os.path.join(cond_dir, fname))
-            Image.fromarray(target_img).save(os.path.join(target_dir, fname))
-
-            metadata.append(
-                {
-                    "id": sample_id,
-                    "start": list(start),
-                    "goal": list(goal),
-                    "path_length": len(path),
-                }
-            )
-
-            sample_id += 1
-            pbar.update(1)
+        sample_id += 1
+        pbar.update(1)
 
     pbar.close()
 
