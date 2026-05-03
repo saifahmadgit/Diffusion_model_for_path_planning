@@ -9,7 +9,7 @@ from config import (
     LEARNING_RATE,
     WEIGHT_DECAY,
 )
-from diffusion import DiffusionModel
+from diffusion_policy import DiffusionModel
 
 
 def load_image(file_path):
@@ -38,7 +38,7 @@ def main():
         optimizer=optimizers.AdamW(
             learning_rate=LEARNING_RATE, weight_decay=WEIGHT_DECAY
         ),
-        loss=losses.mean_absolute_error,
+        loss=losses.MeanAbsoluteError(),
     )
 
     ddm.fit(dataset, epochs=EPOCHS)

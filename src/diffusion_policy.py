@@ -121,7 +121,8 @@ class DiffusionModel(models.Model):
 
         self.normalizer = layers.Normalization()
         self.network = build_unet()
-        self.ema_network = models.clone_model(self.network)
+        self.ema_network = build_unet()
+        self.ema_network.set_weights(self.network.get_weights())
         self.diffusion_schedule = offset_cosine_diffusion_schedule
 
     def compile(self, **kwargs):
@@ -172,7 +173,7 @@ class DiffusionModel(models.Model):
 
     def test_step(self, images):
         images = self.normalizer(images, training=False)
-        noises = tf.random.normal(shape=(BATCH_SIZE, IMAGE_SIZE, IMAGE_SIZE, 3))
+        noises = tf.random.normal(shape=(BATCH_SIZE, IMAGE_SIZE, IMAGE_SIZE, CHANNELS))
         diffusion_times = tf.random.uniform(
             shape=(BATCH_SIZE, 1, 1, 1), minval=0.0, maxval=1.0
         )
@@ -188,7 +189,7 @@ class DiffusionModel(models.Model):
     def generate(self, num_images, diffusion_steps, initial_noise=None):
         if initial_noise is None:
             initial_noise = tf.random.normal(
-                shape=(num_images, IMAGE_SIZE, IMAGE_SIZE, 3)
+                shape=(num_images, IMAGE_SIZE, IMAGE_SIZE, CHANNELS)
             )
         generated_images = self.reverse_diffusion(initial_noise, diffusion_steps)
         generated_images = self.denormalize(generated_images)

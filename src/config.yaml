@@ -1,5 +1,5 @@
 paths:
-  data_dir: "/data_generation/data/target"
+  data_dir: "../data_generation/data/target"
   checkpoint_dir: "checkpoints"
   samples_dir: "samples"
 
@@ -10,16 +10,13 @@ image:
 training:
   batch_size: 32
   epochs: 50
+  learning_rate: 0.0001
+  weight_decay: 0.0001
 
 diffusion:
   min_signal_rate: 0.02
   max_signal_rate: 0.95
+  ema: 0.999
 
 unet:
   noise_embedding_size: 32
-
-training:
-  batch_size:    32
-  epochs:        50
-  learning_rate: 0.0001
-  weight_decay:  0.0001
