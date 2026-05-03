@@ -1,0 +1,16 @@
+paths:
+  data_dir: "/data_generation/data/target"
+
+image:
+  size: 128
+  channels: 3
+
+training:
+  batch_size: 32
+
+
+diffusion:
+  min_signal_rate: 0.02
+  max_signal_rate: 0.95
+
+
