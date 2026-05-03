@@ -12,5 +12,6 @@ training:
 diffusion:
   min_signal_rate: 0.02
   max_signal_rate: 0.95
+  noise_embedding_size: 32
 
 
