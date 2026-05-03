@@ -1,7 +1,4 @@
-# config.py
-
 import os
-
 import yaml
 
 
@@ -29,3 +26,6 @@ MIN_SIGNAL_RATE = cfg["diffusion"]["min_signal_rate"]
 MAX_SIGNAL_RATE = cfg["diffusion"]["max_signal_rate"]
 
 NOISE_EMBEDDING_SIZE = cfg["unet"]["noise_embedding_size"]
+
+LEARNING_RATE = cfg["training"]["learning_rate"]
+WEIGHT_DECAY = cfg["training"]["weight_decay"]
