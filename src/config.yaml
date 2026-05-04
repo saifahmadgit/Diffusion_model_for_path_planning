@@ -1,5 +1,6 @@
 paths:
   data_dir: "../data_generation/data/target"
+  cond_dir: "../data_generation/data/condition"
   checkpoint_dir: "checkpoints"
   samples_dir: "samples"
 
@@ -17,6 +18,7 @@ diffusion:
   min_signal_rate: 0.02
   max_signal_rate: 0.95
   ema: 0.999
+  diffusion_steps: 20
 
 unet:
   noise_embedding_size: 32

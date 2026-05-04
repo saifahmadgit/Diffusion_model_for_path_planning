@@ -1,8 +1,11 @@
+import os
+
 import tensorflow as tf
 from tensorflow.keras import optimizers, losses
 from config import (
     DATA_DIR,
-    IMAGE_SIZE,
+    COND_DIR,
+    CHECKPOINT_DIR,
     CHANNELS,
     BATCH_SIZE,
     EPOCHS,
@@ -21,8 +24,15 @@ def load_image(file_path):
 
 
 def build_dataset():
-    dataset = tf.data.Dataset.list_files(DATA_DIR + "/*.png", shuffle=True)
-    dataset = dataset.map(load_image, num_parallel_calls=tf.data.AUTOTUNE)
+    cond_files = tf.data.Dataset.list_files(COND_DIR + "/*.png", shuffle=False)
+    target_files = tf.data.Dataset.list_files(DATA_DIR + "/*.png", shuffle=False)
+
+    dataset = tf.data.Dataset.zip((cond_files, target_files))
+    dataset = dataset.shuffle(buffer_size=10000, seed=42)
+    dataset = dataset.map(
+        lambda c, t: (load_image(c), load_image(t)),
+        num_parallel_calls=tf.data.AUTOTUNE,
+    )
     dataset = dataset.batch(BATCH_SIZE, drop_remainder=True)
     dataset = dataset.prefetch(tf.data.AUTOTUNE)
     return dataset
@@ -32,7 +42,8 @@ def main():
     dataset = build_dataset()
 
     ddm = DiffusionModel()
-    ddm.normalizer.adapt(dataset)
+    # adapt normalizer on target images only (condition images are not denoised)
+    ddm.normalizer.adapt(dataset.map(lambda cond, tgt: tgt))
 
     ddm.compile(
         optimizer=optimizers.AdamW(
@@ -42,7 +53,7 @@ def main():
     )
 
     ddm.fit(dataset, epochs=EPOCHS)
-    ddm.save_weights("checkpoints/diffusion_model.weights.h5")
+    ddm.save_weights(os.path.join(CHECKPOINT_DIR, "diffusion_model.weights.h5"))
 
 
 if __name__ == "__main__":
