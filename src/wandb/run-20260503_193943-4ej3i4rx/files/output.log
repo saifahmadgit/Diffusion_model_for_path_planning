@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/home/wgk1727/Diffusion_model_for_path_planning/src/train.py", line 94, in <module>
+    main()
+  File "/home/wgk1727/Diffusion_model_for_path_planning/src/train.py", line 73, in main
+    ddm.normalizer.adapt(dataset.map(lambda cond, tgt: tgt))
+  File "/home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/keras/src/layers/preprocessing/normalization.py", line 387, in adapt
+    total_var + (total_mean - new_total_mean) ** 2
+                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^~~~
+  File "/home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py", line 167, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/tensorflow/python/framework/ops.py", line 6027, in raise_from_not_ok_status
+    raise core._status_to_exception(e) from None  # pylint: disable=protected-access
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+tensorflow.python.framework.errors_impl.UnknownError: {{function_node __wrapped__Pow_device_/job:localhost/replica:0/task:0/device:GPU:0}} JIT compilation failed. [Op:Pow] name:

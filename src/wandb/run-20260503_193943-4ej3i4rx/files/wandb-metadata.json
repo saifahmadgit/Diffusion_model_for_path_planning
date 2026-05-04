@@ -1,0 +1,46 @@
+{
+  "os":  "Linux-6.8.0-31-generic-x86_64-with-glibc2.39",
+  "python":  "CPython 3.11.15",
+  "startedAt":  "2026-05-04T00:39:43.322423Z",
+  "program":  "/home/wgk1727/Diffusion_model_for_path_planning/src/train.py",
+  "codePath":  "src/train.py",
+  "codePathLocal":  "train.py",
+  "git":  {
+    "remote":  "git@github.com:saifahmadgit/Diffusion_model_for_path_planning.git",
+    "commit":  "d83469b34ef05c35fdd509aee89251cea28e07ed"
+  },
+  "root":  "/home/wgk1727/Diffusion_model_for_path_planning/src",
+  "host":  "lamb",
+  "executable":  "/home/wgk1727/Diffusion_model_for_path_planning/.venv/bin/python3",
+  "cpu_count":  64,
+  "cpu_count_logical":  128,
+  "gpu":  "NVIDIA RTX 6000 Ada Generation",
+  "gpu_count":  2,
+  "disk":  {
+    "/":  {
+      "total":  "3778190245888",
+      "used":  "1949414465536"
+    }
+  },
+  "memory":  {
+    "total":  "1068902260736"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "NVIDIA RTX 6000 Ada Generation",
+      "memoryTotal":  "51527024640",
+      "cudaCores":  18176,
+      "architecture":  "Ada",
+      "uuid":  "GPU-54b017df-6431-cfe4-6fbd-5c00f870c533"
+    },
+    {
+      "name":  "NVIDIA RTX 6000 Ada Generation",
+      "memoryTotal":  "51527024640",
+      "cudaCores":  18176,
+      "architecture":  "Ada",
+      "uuid":  "GPU-6be0f792-305a-e160-fa0b-025f788cfeab"
+    }
+  ],
+  "cudaVersion":  "12.4",
+  "writerId":  "a812b5e8gbuxwfgjw08kv0thur85k43b"
+}

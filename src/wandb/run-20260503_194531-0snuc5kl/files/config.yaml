@@ -1,0 +1,88 @@
+_wandb:
+    value:
+        cli_version: 0.26.1
+        e:
+            0pd2voavkiml8ymwhnvaaj4r9vxw0goc:
+                codePath: src/train.py
+                codePathLocal: train.py
+                cpu_count: 64
+                cpu_count_logical: 128
+                cudaVersion: "12.4"
+                disk:
+                    /:
+                        total: "3778190245888"
+                        used: "1949415124992"
+                email: mdahmad2026@u.northwestern.edu
+                executable: /home/wgk1727/Diffusion_model_for_path_planning/.venv/bin/python
+                git:
+                    commit: d83469b34ef05c35fdd509aee89251cea28e07ed
+                    remote: git@github.com:saifahmadgit/Diffusion_model_for_path_planning.git
+                gpu: NVIDIA RTX 6000 Ada Generation
+                gpu_count: 2
+                gpu_nvidia:
+                    - architecture: Ada
+                      cudaCores: 18176
+                      memoryTotal: "51527024640"
+                      name: NVIDIA RTX 6000 Ada Generation
+                      uuid: GPU-54b017df-6431-cfe4-6fbd-5c00f870c533
+                    - architecture: Ada
+                      cudaCores: 18176
+                      memoryTotal: "51527024640"
+                      name: NVIDIA RTX 6000 Ada Generation
+                      uuid: GPU-6be0f792-305a-e160-fa0b-025f788cfeab
+                host: lamb
+                memory:
+                    total: "1068902260736"
+                os: Linux-6.8.0-31-generic-x86_64-with-glibc2.39
+                program: /home/wgk1727/Diffusion_model_for_path_planning/src/train.py
+                python: CPython 3.11.15
+                root: /home/wgk1727/Diffusion_model_for_path_planning/src
+                startedAt: "2026-05-04T00:45:31.659196Z"
+                writerId: 0pd2voavkiml8ymwhnvaaj4r9vxw0goc
+        m:
+            - "1": epoch/epoch
+              "6":
+                - 3
+              "7": []
+            - "2": epoch/*
+              "5": 1
+              "6":
+                - 1
+              "7": []
+        python_version: 3.11.15
+        t:
+            "1":
+                - 2
+                - 3
+            "2":
+                - 2
+                - 3
+            "3":
+                - 2
+                - 7
+                - 16
+                - 38
+            "4": 3.11.15
+            "5": 0.26.1
+            "12": 0.26.1
+            "13": linux-x86_64
+batch_size:
+    value: 32
+channels:
+    value: 3
+diffusion_steps:
+    value: 20
+ema:
+    value: 0.999
+epochs:
+    value: 5
+image_size:
+    value: 128
+learning_rate:
+    value: 0.0001
+max_signal_rate:
+    value: 0.95
+min_signal_rate:
+    value: 0.02
+weight_decay:
+    value: 0.0001
