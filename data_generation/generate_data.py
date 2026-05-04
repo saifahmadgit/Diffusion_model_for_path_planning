@@ -21,8 +21,9 @@ OBSTACLE_MIN_H = 16  # obstacle min height
 OBSTACLE_MAX_H = 32  # obstacle max height
 OBSTACLE_MIN_CENTER_DIST = 40  # min distance between obstacle centers
 MIN_START_GOAL_DIST = 30  # manhattan dist between start and goal
-PATH_LINE_WIDTH = 2  # pixel width of drawn path
-OUTPUT_DIR = "data"  # where to save everything
+PATH_LINE_WIDTH = 8  # pixel width of drawn path
+ROBOT_RADIUS = PATH_LINE_WIDTH // 2  # obstacle inflation radius for C-space planning
+OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 SEED = 42
 
 # Colors (RGB)
@@ -66,6 +67,14 @@ def generate_map():
         centers.append((cx, cy))
         placed += 1
     return grid, placed
+
+
+def inflate_obstacles(grid, radius):
+    """Expand every obstacle outward by radius cells (C-space expansion)."""
+    padded = np.pad(grid, radius, mode="constant", constant_values=0)
+    from numpy.lib.stride_tricks import sliding_window_view
+    windows = sliding_window_view(padded, (2 * radius + 1, 2 * radius + 1))
+    return windows.max(axis=(-2, -1)).astype(np.uint8)
 
 
 def sample_free_cell(grid):
@@ -141,7 +150,8 @@ def astar(grid, start, goal):
     return None  # no path found
 
 
-def perturb_path(path, grid, noise_std=2.0):
+def perturb_path(path, inflated_grid, noise_std=2.0):
+    grid = inflated_grid
     """
     Return a slightly different valid path by perturbing the midpoint
     and re-running A* from start→mid and mid→goal.
@@ -183,15 +193,22 @@ def render_condition(grid, start, goal):
     img = Image.new("RGB", (MAP_SIZE, MAP_SIZE), COLOR_BG)
     draw = ImageDraw.Draw(img)
 
+    sr, sc = start
+    gr, gc = goal
+
     for r in range(MAP_SIZE):
         for c in range(MAP_SIZE):
             if grid[r, c] == 1:
+                if sr <= r <= sr + 7 and sc <= c <= sc + 7:
+                    continue
+                if gr <= r <= gr + 7 and gc <= c <= gc + 7:
+                    continue
                 draw.point((c, r), fill=COLOR_OBSTACLE)
 
-    # 4x4 block for visibility; A* uses the exact pixel
+    # 8x8 block for visibility; A* uses the exact pixel
     def draw_marker(rc, color):
         r, c = rc
-        draw.rectangle([(c, r), (c + 3, r + 3)], fill=color)
+        draw.rectangle([(c, r), (c + 7, r + 7)], fill=color)
 
     draw_marker(start, COLOR_START)
     draw_marker(goal, COLOR_GOAL)
@@ -207,9 +224,16 @@ def render_target(grid, start, goal, path):
     img = Image.new("RGB", (MAP_SIZE, MAP_SIZE), COLOR_BG)
     draw = ImageDraw.Draw(img)
 
+    sr, sc = start
+    gr, gc = goal
+
     for r in range(MAP_SIZE):
         for c in range(MAP_SIZE):
             if grid[r, c] == 1:
+                if sr <= r <= sr + 7 and sc <= c <= sc + 7:
+                    continue
+                if gr <= r <= gr + 7 and gc <= c <= gc + 7:
+                    continue
                 draw.point((c, r), fill=COLOR_OBSTACLE)
 
     # path line — (col, row) for PIL
@@ -217,10 +241,10 @@ def render_target(grid, start, goal, path):
         pts = [(c, r) for r, c in path]
         draw.line(pts, fill=COLOR_PATH, width=PATH_LINE_WIDTH)
 
-    # 4x4 block for visibility; A* uses the exact pixel
+    # 8x8 block for visibility; A* uses the exact pixel
     def draw_marker(rc, color):
         r, c = rc
-        draw.rectangle([(c, r), (c + 3, r + 3)], fill=color)
+        draw.rectangle([(c, r), (c + 7, r + 7)], fill=color)
 
     draw_marker(start, COLOR_START)
     draw_marker(goal, COLOR_GOAL)
@@ -254,19 +278,20 @@ def main():
 
         # ── generate a new map ──────────────────────────────────────────
         grid, num_obstacles = generate_map()
+        inflated = inflate_obstacles(grid, ROBOT_RADIUS)
 
-        # ── sample start / goal ─────────────────────────────────────────
-        start = sample_free_cell(grid)
-        goal = sample_free_cell(grid)
+        # ── sample start / goal (must be free in inflated space) ────────
+        start = sample_free_cell(inflated)
+        goal = sample_free_cell(inflated)
         if not far_enough(start, goal):
             continue
 
-        # ── A* path (obstacle-avoiding) ─────────────────────────────────
-        path = astar(grid, start, goal)
+        # ── A* path on inflated grid so robot width never clips obstacles
+        path = astar(inflated, start, goal)
         if path is None:
             continue  # no valid path exists — skip this map
 
-        # ── render and save ─────────────────────────────────────────────
+        # ── render on original grid ─────────────────────────────────────
         cond_img = render_condition(grid, start, goal)
         target_img = render_target(grid, start, goal, path)
 

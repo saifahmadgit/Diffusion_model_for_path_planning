@@ -1,0 +1,27 @@
+Epoch 1/5
+Traceback (most recent call last):
+  File "/home/wgk1727/Diffusion_model_for_path_planning/src/train.py", line 98, in <module>
+    main()
+  File "/home/wgk1727/Diffusion_model_for_path_planning/src/train.py", line 91, in main
+    ddm.fit(dataset, epochs=EPOCHS, callbacks=[WandbMetricsLogger(), EpochCheckpoint()])
+  File "/home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py", line 122, in error_handler
+    raise e.with_traceback(filtered_tb) from None
+  File "/home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/tensorflow/python/eager/execute.py", line 59, in quick_execute
+    except TypeError as e:
+RuntimeError: pybind11::error_already_set: MISMATCH of original and normalized active exception types: ORIGINAL InternalError REPLACED BY KeyboardInterrupt: <EMPTY MESSAGE>
+
+At:
+  /home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/tensorflow/python/framework/errors_impl.py(462): __init__
+  /home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/tensorflow/python/eager/execute.py(53): quick_execute
+  /home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/tensorflow/python/eager/context.py(1688): call_function
+  /home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/tensorflow/python/eager/polymorphic_function/atomic_function.py(251): call_flat
+  /home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/tensorflow/python/eager/polymorphic_function/atomic_function.py(216): call_preflattened
+  /home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/tensorflow/python/eager/polymorphic_function/concrete_function.py(1322): _call_flat
+  /home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/tensorflow/python/eager/polymorphic_function/polymorphic_function.py(919): _call
+  /home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/tensorflow/python/eager/polymorphic_function/polymorphic_function.py(833): __call__
+  /home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/tensorflow/python/util/traceback_utils.py(164): error_handler
+  /home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py(241): function
+  /home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/keras/src/backend/tensorflow/trainer.py(399): fit
+  /home/wgk1727/Diffusion_model_for_path_planning/.venv/lib/python3.11/site-packages/keras/src/utils/traceback_utils.py(117): error_handler
+  /home/wgk1727/Diffusion_model_for_path_planning/src/train.py(91): main
+  /home/wgk1727/Diffusion_model_for_path_planning/src/train.py(98): <module>
