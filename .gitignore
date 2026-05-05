@@ -12,5 +12,8 @@ src/samples/
 # Jupyter
 .ipynb_checkpoints/
 
+# Weights & Biases
+wandb/
+
 # OS
 .DS_Store

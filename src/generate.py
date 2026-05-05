@@ -47,7 +47,7 @@ def save_images(images, folder):
 
 
 def main():
-    num_images = 4
+    num_images = 10
 
     checkpoint_path = latest_ema_checkpoint(CHECKPOINT_DIR)
     print(f"Loading checkpoint: {checkpoint_path}")

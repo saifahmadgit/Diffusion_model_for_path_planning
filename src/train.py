@@ -26,27 +26,22 @@ from config import (
 from diffusion_policy import DiffusionModel
 
 
-def load_image(file_path):
-    raw = tf.io.read_file(file_path)
-    image = tf.image.decode_png(raw, channels=CHANNELS)
-    image = tf.cast(image, tf.float32)
-    image = image / 255.0
-    return image
-
-
 def build_dataset():
-    cond_files = tf.data.Dataset.list_files(COND_DIR + "/*.png", shuffle=False)
-    target_files = tf.data.Dataset.list_files(DATA_DIR + "/*.png", shuffle=False)
+    def load(c, t):
+        def read(p):
+            return tf.cast(tf.image.decode_png(tf.io.read_file(p), channels=CHANNELS), tf.float32) / 255.0
+        return read(c), read(t)
 
-    dataset = tf.data.Dataset.zip((cond_files, target_files))
-    dataset = dataset.shuffle(buffer_size=10000, seed=42)
-    dataset = dataset.map(
-        lambda c, t: (load_image(c), load_image(t)),
-        num_parallel_calls=tf.data.AUTOTUNE,
+    cond = sorted(tf.io.gfile.glob(COND_DIR + "/*.png"))
+    tgt  = sorted(tf.io.gfile.glob(DATA_DIR + "/*.png"))
+
+    return (
+        tf.data.Dataset.from_tensor_slices((cond, tgt))
+        .shuffle(10000, seed=42)
+        .map(load, num_parallel_calls=tf.data.AUTOTUNE)
+        .batch(BATCH_SIZE, drop_remainder=True)
+        .prefetch(tf.data.AUTOTUNE)
     )
-    dataset = dataset.batch(BATCH_SIZE, drop_remainder=True)
-    dataset = dataset.prefetch(tf.data.AUTOTUNE)
-    return dataset
 
 
 def main():
@@ -81,14 +76,15 @@ def main():
 
     class EpochCheckpoint(tf.keras.callbacks.Callback):
         def on_epoch_end(self, epoch, logs=None):
-            self.model.network.save_weights(
-                os.path.join(CHECKPOINT_DIR, f"ckpt_epoch{epoch+1:02d}.weights.h5")
-            )
-            self.model.ema_network.save_weights(
-                os.path.join(CHECKPOINT_DIR, f"ckpt_ema_epoch{epoch+1:02d}.weights.h5")
-            )
+            if (epoch + 1) % 25 == 0:
+                self.model.network.save_weights(
+                    os.path.join(CHECKPOINT_DIR, f"ckpt_epoch{epoch+1:02d}.weights.h5")
+                )
+                self.model.ema_network.save_weights(
+                    os.path.join(CHECKPOINT_DIR, f"ckpt_ema_epoch{epoch+1:02d}.weights.h5")
+                )
 
-    ddm.fit(dataset, epochs=EPOCHS, callbacks=[WandbMetricsLogger(), EpochCheckpoint()])
+    ddm.fit(dataset, epochs=EPOCHS, callbacks=[WandbMetricsLogger(log_freq=10), EpochCheckpoint()])
     ddm.network.save_weights(os.path.join(CHECKPOINT_DIR, "network_final.weights.h5"))
     ddm.ema_network.save_weights(os.path.join(CHECKPOINT_DIR, "ema_network_final.weights.h5"))
     wandb.finish()
