@@ -32,17 +32,35 @@ def build_dataset():
         img = tf.image.decode_png(raw, channels=CHANNELS)
         return tf.cast(img, tf.float32) / 255.0
 
+    def load_pair(cond_path, tgt_path):
+        return load_image(cond_path), load_image(tgt_path)
+
     cond_paths = sorted(tf.io.gfile.glob(COND_DIR + "/*.png"))
     tgt_paths  = sorted(tf.io.gfile.glob(DATA_DIR + "/*.png"))
-
-    # load every image into memory upfront as (N, 128, 128, 3) tensors
-    cond_images = tf.stack([load_image(p) for p in cond_paths])
-    tgt_images  = tf.stack([load_image(p) for p in tgt_paths])
+    n = len(cond_paths)
 
     return (
-        tf.data.Dataset.from_tensor_slices((cond_images, tgt_images))
-        .shuffle(len(cond_paths), seed=42)
+        tf.data.Dataset.from_tensor_slices((cond_paths, tgt_paths))
+        .shuffle(n, seed=42)
+        .map(load_pair, num_parallel_calls=tf.data.AUTOTUNE)
         .batch(BATCH_SIZE, drop_remainder=True)
+        .prefetch(tf.data.AUTOTUNE)
+    ), n
+
+
+def build_normalizer_dataset():
+    """Stream a small subset of targets to adapt the normalizer without OOM."""
+    def load_image(path):
+        raw = tf.io.read_file(path)
+        img = tf.image.decode_png(raw, channels=CHANNELS)
+        return tf.cast(img, tf.float32) / 255.0
+
+    tgt_paths = sorted(tf.io.gfile.glob(DATA_DIR + "/*.png"))[:2000]
+    return (
+        tf.data.Dataset.from_tensor_slices(tgt_paths)
+        .map(load_image, num_parallel_calls=tf.data.AUTOTUNE)
+        .batch(BATCH_SIZE)
+        .prefetch(tf.data.AUTOTUNE)
     )
 
 
@@ -63,11 +81,11 @@ def main():
         },
     )
 
-    dataset = build_dataset()
+    dataset, n_samples = build_dataset()
 
     ddm = DiffusionModel()
-    # adapt normalizer on target images only (condition images are not denoised)
-    ddm.normalizer.adapt(dataset.map(lambda cond, tgt: tgt))
+    # adapt normalizer on a streamed subset of targets — avoids loading all into GPU
+    ddm.normalizer.adapt(build_normalizer_dataset())
 
     ddm.compile(
         optimizer=optimizers.AdamW(
