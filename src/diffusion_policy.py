@@ -150,12 +150,15 @@ class DiffusionModel(models.Model):
     def train_step(self, data):
         condition, target = data
         target = self.normalizer(target, training=True)
+        # noise generation, at other end of original image, complete noise, it is also the output ground truth which network learns to predict
         noises = tf.random.normal(shape=(BATCH_SIZE, IMAGE_SIZE, IMAGE_SIZE, CHANNELS))
-
+        # random number between 0 to 1 to decide how much noise to add, this goes to scheduler
         diffusion_times = tf.random.uniform(
             shape=(BATCH_SIZE, 1, 1, 1), minval=0.0, maxval=1.0
         )
+        # getting noise rates and signal rates by inputting random time (0,1)
         noise_rates, signal_rates = self.diffusion_schedule(diffusion_times)
+        # calculate noisy image
         noisy_images = signal_rates * target + noise_rates * noises
 
         with tf.GradientTape() as tape:
@@ -195,14 +198,16 @@ class DiffusionModel(models.Model):
             initial_noise = tf.random.normal(
                 shape=(num_images, IMAGE_SIZE, IMAGE_SIZE, CHANNELS)
             )
-        generated_images = self.reverse_diffusion(initial_noise, condition_images, diffusion_steps)
+        generated_images, snapshots = self.reverse_diffusion(initial_noise, condition_images, diffusion_steps)
         generated_images = self.denormalize(generated_images)
-        return generated_images
+        return generated_images, snapshots
 
     def reverse_diffusion(self, initial_noise, condition_images, diffusion_steps):
         num_images = initial_noise.shape[0]
         step_size = 1.0 / diffusion_steps
         current_images = initial_noise
+        save_every = diffusion_steps // 10
+        snapshots = []
         for step in range(diffusion_steps):
             diffusion_times = tf.ones((num_images, 1, 1, 1)) - step * step_size
             noise_rates, signal_rates = self.diffusion_schedule(diffusion_times)
@@ -216,4 +221,6 @@ class DiffusionModel(models.Model):
             current_images = (
                 next_signal_rates * pred_images + next_noise_rates * pred_noises
             )
-        return pred_images
+            if (step + 1) % save_every == 0:
+                snapshots.append(self.denormalize(current_images))
+        return pred_images, snapshots

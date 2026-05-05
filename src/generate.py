@@ -62,13 +62,23 @@ def main():
 
     ddm.ema_network.load_weights(checkpoint_path)
 
-    generated = ddm.generate(
+    generated, snapshots = ddm.generate(
         condition_images=condition_images,
         diffusion_steps=DIFFUSION_STEPS,
     )
 
     save_images(generated, SAMPLES_DIR)
     print(f"Saved {len(generated)} images to {SAMPLES_DIR}")
+
+    # save one horizontal strip per image showing 10 denoising steps
+    strips_dir = os.path.join(SAMPLES_DIR, "strips")
+    os.makedirs(strips_dir, exist_ok=True)
+    for i in range(num_images):
+        frames = [snapshots[s][i].numpy() for s in range(len(snapshots))]
+        strip = np.concatenate(frames, axis=1)          # (128, 128*10, 3)
+        strip = (strip * 255).astype(np.uint8)
+        Image.fromarray(strip).save(os.path.join(strips_dir, f"strip_{i}.png"))
+    print(f"Saved denoising strips to {strips_dir}")
 
 
 if __name__ == "__main__":

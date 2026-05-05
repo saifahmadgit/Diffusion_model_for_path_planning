@@ -27,20 +27,22 @@ from diffusion_policy import DiffusionModel
 
 
 def build_dataset():
-    def load(c, t):
-        def read(p):
-            return tf.cast(tf.image.decode_png(tf.io.read_file(p), channels=CHANNELS), tf.float32) / 255.0
-        return read(c), read(t)
+    def load_image(path):
+        raw = tf.io.read_file(path)
+        img = tf.image.decode_png(raw, channels=CHANNELS)
+        return tf.cast(img, tf.float32) / 255.0
 
-    cond = sorted(tf.io.gfile.glob(COND_DIR + "/*.png"))
-    tgt  = sorted(tf.io.gfile.glob(DATA_DIR + "/*.png"))
+    cond_paths = sorted(tf.io.gfile.glob(COND_DIR + "/*.png"))
+    tgt_paths  = sorted(tf.io.gfile.glob(DATA_DIR + "/*.png"))
+
+    # load every image into memory upfront as (N, 128, 128, 3) tensors
+    cond_images = tf.stack([load_image(p) for p in cond_paths])
+    tgt_images  = tf.stack([load_image(p) for p in tgt_paths])
 
     return (
-        tf.data.Dataset.from_tensor_slices((cond, tgt))
-        .shuffle(10000, seed=42)
-        .map(load, num_parallel_calls=tf.data.AUTOTUNE)
+        tf.data.Dataset.from_tensor_slices((cond_images, tgt_images))
+        .shuffle(len(cond_paths), seed=42)
         .batch(BATCH_SIZE, drop_remainder=True)
-        .prefetch(tf.data.AUTOTUNE)
     )
 
 
