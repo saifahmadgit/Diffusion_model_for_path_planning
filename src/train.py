@@ -57,15 +57,6 @@ def build_dataset():
     return dataset, n
 
 
-def build_normalizer_dataset():
-    tgt_paths = sorted(tf.io.gfile.glob(DATA_DIR + "/*.png"))[:2000]
-
-    dataset = tf.data.Dataset.from_tensor_slices(tgt_paths)
-    dataset = dataset.map(load_image, num_parallel_calls=4)
-    dataset = dataset.batch(BATCH_SIZE)
-    dataset = dataset.prefetch(2)
-    return dataset
-
 
 class EpochCheckpoint(tf.keras.callbacks.Callback):
     def __init__(self, run_dir):
@@ -105,8 +96,6 @@ def main():
     dataset, n_samples = build_dataset()
 
     ddm = DiffusionModel()
-    normalizer_dataset = build_normalizer_dataset()
-    ddm.normalizer.adapt(normalizer_dataset)
 
     optimizer = optimizers.AdamW(learning_rate=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     ddm.compile(optimizer=optimizer, loss=losses.MeanAbsoluteError())

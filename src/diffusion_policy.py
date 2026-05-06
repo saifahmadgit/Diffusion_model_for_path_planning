@@ -120,7 +120,6 @@ class DiffusionModel(models.Model):
     def __init__(self):
         super().__init__()
 
-        self.normalizer = layers.Normalization()
         self.network = build_unet()
         self.ema_network = build_unet()
         self.ema_network.set_weights(self.network.get_weights())
@@ -135,7 +134,8 @@ class DiffusionModel(models.Model):
         return [self.noise_loss_tracker]
 
     def denormalize(self, images):
-        images = self.normalizer.mean + images * self.normalizer.variance**0.5
+        # reverse the x * 2 - 1 normalization: [-1, 1] → [0, 1]
+        images = (images + 1.0) / 2.0
         return tf.clip_by_value(images, 0.0, 1.0)
 
     def denoise(self, noisy_images, noise_rates, signal_rates, training, condition):
@@ -150,7 +150,9 @@ class DiffusionModel(models.Model):
 
     def train_step(self, data):
         condition, target = data
-        target = self.normalizer(target, training=True)
+        # normalize both to [-1, 1] so they are on the same scale when concatenated
+        condition = condition * 2.0 - 1.0
+        target = target * 2.0 - 1.0
         # noise generation, at other end of original image, complete noise, it is also the output ground truth which network learns to predict
         noises = tf.random.normal(shape=(BATCH_SIZE, IMAGE_SIZE, IMAGE_SIZE, CHANNELS))
         # random number between 0 to 1 to decide how much noise to add, this goes to scheduler
@@ -179,7 +181,8 @@ class DiffusionModel(models.Model):
 
     def test_step(self, data):
         condition, target = data
-        target = self.normalizer(target, training=False)
+        condition = condition * 2.0 - 1.0
+        target = target * 2.0 - 1.0
         noises = tf.random.normal(shape=(BATCH_SIZE, IMAGE_SIZE, IMAGE_SIZE, CHANNELS))
         diffusion_times = tf.random.uniform(
             shape=(BATCH_SIZE, 1, 1, 1), minval=0.0, maxval=1.0

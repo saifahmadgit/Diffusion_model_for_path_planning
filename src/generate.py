@@ -14,10 +14,8 @@ from config import (
     CHANNELS,
     CHECKPOINT_DIR,
     COND_DIR,
-    DATA_DIR,
     DIFFUSION_STEPS,
     SAMPLES_DIR,
-    BATCH_SIZE,
 )
 from diffusion_policy import DiffusionModel
 
@@ -31,8 +29,6 @@ def list_runs(checkpoint_dir):
 
 
 def resolve_checkpoint(run_dir):
-    """Return path to the best ema weights file inside run_dir."""
-    # prefer final weights, fall back to latest periodic checkpoint
     final = os.path.join(run_dir, "ema_network_final.weights.h5")
     if os.path.isfile(final):
         return final
@@ -80,20 +76,6 @@ def load_images_random(directory, num_images):
     return tf.stack(images), paths
 
 
-def load_images(directory, num_images):
-    """Load first num_images for normalizer adaption (deterministic subset)."""
-    files = sorted(
-        f for f in os.listdir(directory) if f.lower().endswith(".png")
-    )[:num_images]
-    images = []
-    for fname in files:
-        raw = tf.io.read_file(os.path.join(directory, fname))
-        img = tf.image.decode_png(raw, channels=CHANNELS)
-        img = tf.cast(img, tf.float32) / 255.0
-        images.append(img)
-    return tf.stack(images)
-
-
 def save_images(images, folder, prefix="generated"):
     os.makedirs(folder, exist_ok=True)
     for i, image in enumerate(images):
@@ -114,7 +96,6 @@ def main():
             print(f"No checkpoint runs found in {CHECKPOINT_DIR}")
         return
 
-    # resolve checkpoint path
     if os.path.isfile(args.checkpoint):
         checkpoint_path = args.checkpoint
     else:
@@ -127,13 +108,11 @@ def main():
 
     print(f"Loading checkpoint: {checkpoint_path}")
 
-    # timestamped output folder
     out_dir = os.path.join(SAMPLES_DIR, datetime.now().strftime("%Y%m%d_%H%M%S"))
     os.makedirs(out_dir, exist_ok=True)
 
     condition_images, cond_paths = load_images_random(COND_DIR, args.num_images)
 
-    # save the condition images that were used
     cond_out_dir = os.path.join(out_dir, "conditions")
     os.makedirs(cond_out_dir, exist_ok=True)
     for i, src in enumerate(cond_paths):
@@ -141,9 +120,10 @@ def main():
         img.save(os.path.join(cond_out_dir, f"condition_{i}.png"))
     print(f"Saved condition images to {cond_out_dir}")
 
-    target_subset = load_images(DATA_DIR, BATCH_SIZE)
+    # normalize condition to [-1, 1] — same as what train_step does before feeding to UNet
+    condition_images = condition_images * 2.0 - 1.0
+
     ddm = DiffusionModel()
-    ddm.normalizer.adapt(target_subset)
     ddm.ema_network.load_weights(checkpoint_path)
 
     generated, snapshots = ddm.generate(
