@@ -60,11 +60,25 @@ def ResidualBlock(width, noise_emb):
     return apply
 
 
-def DownBlock(width, block_depth, noise_emb):
+def AttentionBlock(num_heads=4):
+    def apply(x):
+        _, H, W, C = x.shape
+        h = layers.LayerNormalization()(x)
+        h = layers.Reshape((H * W, C))(h)
+        h = layers.MultiHeadAttention(num_heads=num_heads, key_dim=C // num_heads)(h, h)
+        h = layers.Reshape((H, W, C))(h)
+        return layers.Add()([x, h])
+
+    return apply
+
+
+def DownBlock(width, block_depth, noise_emb, use_attention=False, num_heads=4):
     def apply(x):
         x, skips = x
         for _ in range(block_depth):
             x = ResidualBlock(width, noise_emb)(x)
+            if use_attention:
+                x = AttentionBlock(num_heads)(x)
             skips.append(x)
         x = layers.AveragePooling2D(pool_size=2)(x)
         return x
@@ -72,13 +86,15 @@ def DownBlock(width, block_depth, noise_emb):
     return apply
 
 
-def UpBlock(width, block_depth, noise_emb):
+def UpBlock(width, block_depth, noise_emb, use_attention=False, num_heads=4):
     def apply(x):
         x, skips = x
         x = layers.UpSampling2D(size=2, interpolation="bilinear")(x)
         for _ in range(block_depth):
             x = layers.Concatenate()([x, skips.pop()])
             x = ResidualBlock(width, noise_emb)(x)
+            if use_attention:
+                x = AttentionBlock(num_heads)(x)
         return x
 
     return apply
@@ -99,14 +115,15 @@ def build_unet():
     skips = []
     x = DownBlock(32, block_depth=2, noise_emb=noise_emb)([x, skips])
     x = DownBlock(64, block_depth=2, noise_emb=noise_emb)([x, skips])
-    x = DownBlock(96, block_depth=2, noise_emb=noise_emb)([x, skips])
+    x = DownBlock(96, block_depth=2, noise_emb=noise_emb, use_attention=True, num_heads=4)([x, skips])  # 32×32
 
-    # Bottleneck
+    # Bottleneck (16×16): ResBlock → Attention → ResBlock, following DDPM/ADM
     x = ResidualBlock(128, noise_emb)(x)
+    x = AttentionBlock(num_heads=4)(x)
     x = ResidualBlock(128, noise_emb)(x)
 
     # Decoder
-    x = UpBlock(96, block_depth=2, noise_emb=noise_emb)([x, skips])
+    x = UpBlock(96, block_depth=2, noise_emb=noise_emb, use_attention=True, num_heads=4)([x, skips])  # 32×32
     x = UpBlock(64, block_depth=2, noise_emb=noise_emb)([x, skips])
     x = UpBlock(32, block_depth=2, noise_emb=noise_emb)([x, skips])
 
@@ -226,5 +243,5 @@ class DiffusionModel(models.Model):
                 next_signal_rates * pred_images + next_noise_rates * pred_noises
             )
             if (step + 1) % save_every == 0:
-                snapshots.append(self.denormalize(current_images))
+                snapshots.append(self.denormalize(pred_images))
         return pred_images, snapshots

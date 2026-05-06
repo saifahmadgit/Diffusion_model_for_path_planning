@@ -104,7 +104,7 @@ def main():
         WandbMetricsLogger(log_freq=10),
         EpochCheckpoint(run_dir),
     ]
-    ddm.fit(dataset, epochs=EPOCHS, callbacks=callbacks)
+    ddm.fit(dataset, epochs=EPOCHS, callbacks=callbacks, verbose=1)
 
     ddm.network.save_weights(os.path.join(run_dir, "network_final.weights.h5"))
     ddm.ema_network.save_weights(os.path.join(run_dir, "ema_network_final.weights.h5"))
