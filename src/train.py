@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 
 import wandb
 from wandb.integration.keras import WandbMetricsLogger
@@ -42,9 +43,9 @@ def build_dataset():
     return (
         tf.data.Dataset.from_tensor_slices((cond_paths, tgt_paths))
         .shuffle(n, seed=42)
-        .map(load_pair, num_parallel_calls=tf.data.AUTOTUNE)
+        .map(load_pair, num_parallel_calls=4)
         .batch(BATCH_SIZE, drop_remainder=True)
-        .prefetch(tf.data.AUTOTUNE)
+        .prefetch(4)
     ), n
 
 
@@ -58,9 +59,9 @@ def build_normalizer_dataset():
     tgt_paths = sorted(tf.io.gfile.glob(DATA_DIR + "/*.png"))[:2000]
     return (
         tf.data.Dataset.from_tensor_slices(tgt_paths)
-        .map(load_image, num_parallel_calls=tf.data.AUTOTUNE)
+        .map(load_image, num_parallel_calls=4)
         .batch(BATCH_SIZE)
-        .prefetch(tf.data.AUTOTUNE)
+        .prefetch(2)
     )
 
 
@@ -81,6 +82,9 @@ def main():
         },
     )
 
+    run_dir = os.path.join(CHECKPOINT_DIR, datetime.now().strftime("%Y%m%d_%H%M%S"))
+    os.makedirs(run_dir, exist_ok=True)
+
     dataset, n_samples = build_dataset()
 
     ddm = DiffusionModel()
@@ -98,15 +102,15 @@ def main():
         def on_epoch_end(self, epoch, logs=None):
             if (epoch + 1) % 25 == 0:
                 self.model.network.save_weights(
-                    os.path.join(CHECKPOINT_DIR, f"ckpt_epoch{epoch+1:02d}.weights.h5")
+                    os.path.join(run_dir, f"ckpt_epoch{epoch+1:02d}.weights.h5")
                 )
                 self.model.ema_network.save_weights(
-                    os.path.join(CHECKPOINT_DIR, f"ckpt_ema_epoch{epoch+1:02d}.weights.h5")
+                    os.path.join(run_dir, f"ckpt_ema_epoch{epoch+1:02d}.weights.h5")
                 )
 
     ddm.fit(dataset, epochs=EPOCHS, callbacks=[WandbMetricsLogger(log_freq=10), EpochCheckpoint()])
-    ddm.network.save_weights(os.path.join(CHECKPOINT_DIR, "network_final.weights.h5"))
-    ddm.ema_network.save_weights(os.path.join(CHECKPOINT_DIR, "ema_network_final.weights.h5"))
+    ddm.network.save_weights(os.path.join(run_dir, "network_final.weights.h5"))
+    ddm.ema_network.save_weights(os.path.join(run_dir, "ema_network_final.weights.h5"))
     wandb.finish()
 
 

@@ -1,4 +1,6 @@
+import argparse
 import os
+from datetime import datetime
 
 import numpy as np
 import tensorflow as tf
@@ -20,16 +22,69 @@ from config import (
 from diffusion_policy import DiffusionModel
 
 
-def latest_ema_checkpoint(checkpoint_dir):
-    files = [f for f in os.listdir(checkpoint_dir) if f.startswith("ckpt_ema_epoch")]
-    if not files:
-        return os.path.join(checkpoint_dir, "ema_network_final.weights.h5")
-    files.sort()
-    return os.path.join(checkpoint_dir, files[-1])
+def list_runs(checkpoint_dir):
+    runs = sorted(
+        d for d in os.listdir(checkpoint_dir)
+        if os.path.isdir(os.path.join(checkpoint_dir, d))
+    )
+    return runs
+
+
+def resolve_checkpoint(run_dir):
+    """Return path to the best ema weights file inside run_dir."""
+    # prefer final weights, fall back to latest periodic checkpoint
+    final = os.path.join(run_dir, "ema_network_final.weights.h5")
+    if os.path.isfile(final):
+        return final
+    periodic = sorted(
+        f for f in os.listdir(run_dir) if f.startswith("ckpt_ema_epoch")
+    )
+    if periodic:
+        return os.path.join(run_dir, periodic[-1])
+    raise FileNotFoundError(f"No EMA checkpoint found in {run_dir}")
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Generate paths from a trained checkpoint.")
+    parser.add_argument(
+        "--checkpoint", "-c",
+        help=(
+            "Run folder name (e.g. 20260505_143021) inside CHECKPOINT_DIR, "
+            "or an absolute path to a .h5 weights file. "
+            "Omit to list available runs."
+        ),
+        default=None,
+    )
+    parser.add_argument(
+        "--num-images", "-n",
+        type=int,
+        default=10,
+        help="Number of images to generate (default: 10).",
+    )
+    return parser.parse_args()
+
+
+def load_images_random(directory, num_images):
+    all_files = sorted(
+        f for f in os.listdir(directory) if f.lower().endswith(".png")
+    )
+    chosen = np.random.choice(all_files, size=num_images, replace=False)
+    images, paths = [], []
+    for fname in chosen:
+        path = os.path.join(directory, fname)
+        raw = tf.io.read_file(path)
+        img = tf.image.decode_png(raw, channels=CHANNELS)
+        img = tf.cast(img, tf.float32) / 255.0
+        images.append(img)
+        paths.append(path)
+    return tf.stack(images), paths
 
 
 def load_images(directory, num_images):
-    files = sorted(os.listdir(directory))[:num_images]
+    """Load first num_images for normalizer adaption (deterministic subset)."""
+    files = sorted(
+        f for f in os.listdir(directory) if f.lower().endswith(".png")
+    )[:num_images]
     images = []
     for fname in files:
         raw = tf.io.read_file(os.path.join(directory, fname))
@@ -39,27 +94,56 @@ def load_images(directory, num_images):
     return tf.stack(images)
 
 
-def save_images(images, folder):
+def save_images(images, folder, prefix="generated"):
     os.makedirs(folder, exist_ok=True)
     for i, image in enumerate(images):
         image = (image.numpy() * 255).astype(np.uint8)
-        Image.fromarray(image).save(os.path.join(folder, f"generated_{i}.png"))
+        Image.fromarray(image).save(os.path.join(folder, f"{prefix}_{i}.png"))
 
 
 def main():
-    num_images = 10
+    args = parse_args()
 
-    checkpoint_path = latest_ema_checkpoint(CHECKPOINT_DIR)
+    if args.checkpoint is None:
+        runs = list_runs(CHECKPOINT_DIR)
+        if runs:
+            print("Available checkpoint runs:")
+            for r in runs:
+                print(f"  {r}")
+        else:
+            print(f"No checkpoint runs found in {CHECKPOINT_DIR}")
+        return
+
+    # resolve checkpoint path
+    if os.path.isfile(args.checkpoint):
+        checkpoint_path = args.checkpoint
+    else:
+        run_dir = (
+            args.checkpoint
+            if os.path.isabs(args.checkpoint)
+            else os.path.join(CHECKPOINT_DIR, args.checkpoint)
+        )
+        checkpoint_path = resolve_checkpoint(run_dir)
+
     print(f"Loading checkpoint: {checkpoint_path}")
 
-    condition_images = load_images(COND_DIR, num_images)
+    # timestamped output folder
+    out_dir = os.path.join(SAMPLES_DIR, datetime.now().strftime("%Y%m%d_%H%M%S"))
+    os.makedirs(out_dir, exist_ok=True)
 
-    # Re-adapt normalizer on a small subset of training targets so
-    # denormalize() has the correct mean and variance.
+    condition_images, cond_paths = load_images_random(COND_DIR, args.num_images)
+
+    # save the condition images that were used
+    cond_out_dir = os.path.join(out_dir, "conditions")
+    os.makedirs(cond_out_dir, exist_ok=True)
+    for i, src in enumerate(cond_paths):
+        img = Image.open(src)
+        img.save(os.path.join(cond_out_dir, f"condition_{i}.png"))
+    print(f"Saved condition images to {cond_out_dir}")
+
     target_subset = load_images(DATA_DIR, BATCH_SIZE)
     ddm = DiffusionModel()
     ddm.normalizer.adapt(target_subset)
-
     ddm.ema_network.load_weights(checkpoint_path)
 
     generated, snapshots = ddm.generate(
@@ -67,15 +151,14 @@ def main():
         diffusion_steps=DIFFUSION_STEPS,
     )
 
-    save_images(generated, SAMPLES_DIR)
-    print(f"Saved {len(generated)} images to {SAMPLES_DIR}")
+    save_images(generated, out_dir)
+    print(f"Saved {len(generated)} images to {out_dir}")
 
-    # save one horizontal strip per image showing 10 denoising steps
-    strips_dir = os.path.join(SAMPLES_DIR, "strips")
+    strips_dir = os.path.join(out_dir, "strips")
     os.makedirs(strips_dir, exist_ok=True)
-    for i in range(num_images):
+    for i in range(args.num_images):
         frames = [snapshots[s][i].numpy() for s in range(len(snapshots))]
-        strip = np.concatenate(frames, axis=1)          # (128, 128*10, 3)
+        strip = np.concatenate(frames, axis=1)
         strip = (strip * 255).astype(np.uint8)
         Image.fromarray(strip).save(os.path.join(strips_dir, f"strip_{i}.png"))
     print(f"Saved denoising strips to {strips_dir}")
