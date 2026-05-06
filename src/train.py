@@ -4,11 +4,8 @@ from datetime import datetime
 import wandb
 from wandb.integration.keras import WandbMetricsLogger
 import tensorflow as tf
-
-for _gpu in tf.config.list_physical_devices("GPU"):
-    tf.config.experimental.set_memory_growth(_gpu, True)
-
 from tensorflow.keras import optimizers, losses
+
 from config import (
     DATA_DIR,
     COND_DIR,
@@ -27,45 +24,65 @@ from config import (
 from diffusion_policy import DiffusionModel
 
 
+def configure_gpu():
+    gpus = tf.config.list_physical_devices("GPU")
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
+
+
+def load_image(path):
+    raw = tf.io.read_file(path)
+    img = tf.image.decode_png(raw, channels=CHANNELS)
+    img = tf.cast(img, tf.float32) / 255.0
+    return img
+
+
+def load_pair(cond_path, tgt_path):
+    condition = load_image(cond_path)
+    target = load_image(tgt_path)
+    return condition, target
+
+
 def build_dataset():
-    def load_image(path):
-        raw = tf.io.read_file(path)
-        img = tf.image.decode_png(raw, channels=CHANNELS)
-        return tf.cast(img, tf.float32) / 255.0
-
-    def load_pair(cond_path, tgt_path):
-        return load_image(cond_path), load_image(tgt_path)
-
+    # returns tensorflow pipeline object which has information of how to parse through data in batches when iterated over
     cond_paths = sorted(tf.io.gfile.glob(COND_DIR + "/*.png"))
-    tgt_paths  = sorted(tf.io.gfile.glob(DATA_DIR + "/*.png"))
+    tgt_paths = sorted(tf.io.gfile.glob(DATA_DIR + "/*.png"))
     n = len(cond_paths)
 
-    return (
-        tf.data.Dataset.from_tensor_slices((cond_paths, tgt_paths))
-        .shuffle(n, seed=42)
-        .map(load_pair, num_parallel_calls=4)
-        .batch(BATCH_SIZE, drop_remainder=True)
-        .prefetch(4)
-    ), n
+    dataset = tf.data.Dataset.from_tensor_slices((cond_paths, tgt_paths))
+    dataset = dataset.shuffle(n, seed=42)
+    dataset = dataset.map(load_pair, num_parallel_calls=4)
+    dataset = dataset.batch(BATCH_SIZE, drop_remainder=True)
+    dataset = dataset.prefetch(4)
+    return dataset, n
 
 
 def build_normalizer_dataset():
-    """Stream a small subset of targets to adapt the normalizer without OOM."""
-    def load_image(path):
-        raw = tf.io.read_file(path)
-        img = tf.image.decode_png(raw, channels=CHANNELS)
-        return tf.cast(img, tf.float32) / 255.0
-
     tgt_paths = sorted(tf.io.gfile.glob(DATA_DIR + "/*.png"))[:2000]
-    return (
-        tf.data.Dataset.from_tensor_slices(tgt_paths)
-        .map(load_image, num_parallel_calls=4)
-        .batch(BATCH_SIZE)
-        .prefetch(2)
-    )
+
+    dataset = tf.data.Dataset.from_tensor_slices(tgt_paths)
+    dataset = dataset.map(load_image, num_parallel_calls=4)
+    dataset = dataset.batch(BATCH_SIZE)
+    dataset = dataset.prefetch(2)
+    return dataset
+
+
+class EpochCheckpoint(tf.keras.callbacks.Callback):
+    def __init__(self, run_dir):
+        super().__init__()
+        self.run_dir = run_dir
+
+    def on_epoch_end(self, epoch, logs=None):
+        if (epoch + 1) % 25 == 0:
+            network_path = os.path.join(self.run_dir, f"ckpt_epoch{epoch+1:02d}.weights.h5")
+            ema_path = os.path.join(self.run_dir, f"ckpt_ema_epoch{epoch+1:02d}.weights.h5")
+            self.model.network.save_weights(network_path)
+            self.model.ema_network.save_weights(ema_path)
 
 
 def main():
+    configure_gpu()
+
     wandb.init(
         project="diffusion-path-planning",
         config={
@@ -88,27 +105,18 @@ def main():
     dataset, n_samples = build_dataset()
 
     ddm = DiffusionModel()
-    # adapt normalizer on a streamed subset of targets — avoids loading all into GPU
-    ddm.normalizer.adapt(build_normalizer_dataset())
+    normalizer_dataset = build_normalizer_dataset()
+    ddm.normalizer.adapt(normalizer_dataset)
 
-    ddm.compile(
-        optimizer=optimizers.AdamW(
-            learning_rate=LEARNING_RATE, weight_decay=WEIGHT_DECAY
-        ),
-        loss=losses.MeanAbsoluteError(),
-    )
+    optimizer = optimizers.AdamW(learning_rate=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+    ddm.compile(optimizer=optimizer, loss=losses.MeanAbsoluteError())
 
-    class EpochCheckpoint(tf.keras.callbacks.Callback):
-        def on_epoch_end(self, epoch, logs=None):
-            if (epoch + 1) % 25 == 0:
-                self.model.network.save_weights(
-                    os.path.join(run_dir, f"ckpt_epoch{epoch+1:02d}.weights.h5")
-                )
-                self.model.ema_network.save_weights(
-                    os.path.join(run_dir, f"ckpt_ema_epoch{epoch+1:02d}.weights.h5")
-                )
+    callbacks = [
+        WandbMetricsLogger(log_freq=10),
+        EpochCheckpoint(run_dir),
+    ]
+    ddm.fit(dataset, epochs=EPOCHS, callbacks=callbacks)
 
-    ddm.fit(dataset, epochs=EPOCHS, callbacks=[WandbMetricsLogger(log_freq=10), EpochCheckpoint()])
     ddm.network.save_weights(os.path.join(run_dir, "network_final.weights.h5"))
     ddm.ema_network.save_weights(os.path.join(run_dir, "ema_network_final.weights.h5"))
     wandb.finish()

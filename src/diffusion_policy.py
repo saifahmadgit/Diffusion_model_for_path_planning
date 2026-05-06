@@ -37,7 +37,7 @@ def sinusoidal_embedding(x):
     return embeddings
 
 
-def ResidualBlock(width):
+def ResidualBlock(width, noise_emb):
     def apply(x):
         input_width = x.shape[3]
         if input_width == width:
@@ -45,9 +45,14 @@ def ResidualBlock(width):
         else:
             residual = layers.Conv2D(width, kernel_size=1)(x)
         x = layers.BatchNormalization(center=False, scale=False)(x)
-        x = layers.Conv2D(
-            width, kernel_size=3, padding="same", activation=activations.swish
-        )(x)
+        x = layers.Conv2D(width, kernel_size=3, padding="same", activation=activations.swish)(x)
+
+        # project noise embedding from 32 dims to match this block's channel width
+        # noise_emb shape: (batch, 1, 1, 32) → after Dense: (batch, 1, 1, width)
+        # adding (batch, 1, 1, width) to (batch, H, W, width) broadcasts across H and W
+        noise_proj = layers.Dense(width)(noise_emb)
+        x = layers.Add()([x, noise_proj])
+
         x = layers.Conv2D(width, kernel_size=3, padding="same")(x)
         x = layers.Add()([x, residual])
         return x
@@ -55,11 +60,11 @@ def ResidualBlock(width):
     return apply
 
 
-def DownBlock(width, block_depth):
+def DownBlock(width, block_depth, noise_emb):
     def apply(x):
         x, skips = x
         for _ in range(block_depth):
-            x = ResidualBlock(width)(x)
+            x = ResidualBlock(width, noise_emb)(x)
             skips.append(x)
         x = layers.AveragePooling2D(pool_size=2)(x)
         return x
@@ -67,13 +72,13 @@ def DownBlock(width, block_depth):
     return apply
 
 
-def UpBlock(width, block_depth):
+def UpBlock(width, block_depth, noise_emb):
     def apply(x):
         x, skips = x
         x = layers.UpSampling2D(size=2, interpolation="bilinear")(x)
         for _ in range(block_depth):
             x = layers.Concatenate()([x, skips.pop()])
-            x = ResidualBlock(width)(x)
+            x = ResidualBlock(width, noise_emb)(x)
         return x
 
     return apply
@@ -84,30 +89,26 @@ def build_unet():
     noisy_images = layers.Input(shape=(IMAGE_SIZE, IMAGE_SIZE, CHANNELS * 2))
     x = layers.Conv2D(32, kernel_size=1)(noisy_images)
 
-    # Input 2
+    # Input 2: noise level as a scalar, shape (batch, 1, 1, 1)
+    # convert it to a 32-dim embedding, shape stays (batch, 1, 1, 32)
+    # this gets passed into every ResidualBlock so all layers know the noise level
     noise_variances = layers.Input(shape=(1, 1, 1))
-    noise_embedding = layers.Lambda(sinusoidal_embedding)(noise_variances)
-    noise_embedding = layers.UpSampling2D(size=IMAGE_SIZE, interpolation="nearest")(
-        noise_embedding
-    )
-
-    # Merge both inputs
-    x = layers.Concatenate()([x, noise_embedding])
+    noise_emb = layers.Lambda(sinusoidal_embedding)(noise_variances)
 
     # Encoder
     skips = []
-    x = DownBlock(32, block_depth=2)([x, skips])
-    x = DownBlock(64, block_depth=2)([x, skips])
-    x = DownBlock(96, block_depth=2)([x, skips])
+    x = DownBlock(32, block_depth=2, noise_emb=noise_emb)([x, skips])
+    x = DownBlock(64, block_depth=2, noise_emb=noise_emb)([x, skips])
+    x = DownBlock(96, block_depth=2, noise_emb=noise_emb)([x, skips])
 
     # Bottleneck
-    x = ResidualBlock(128)(x)
-    x = ResidualBlock(128)(x)
+    x = ResidualBlock(128, noise_emb)(x)
+    x = ResidualBlock(128, noise_emb)(x)
 
     # Decoder
-    x = UpBlock(96, block_depth=2)([x, skips])
-    x = UpBlock(64, block_depth=2)([x, skips])
-    x = UpBlock(32, block_depth=2)([x, skips])
+    x = UpBlock(96, block_depth=2, noise_emb=noise_emb)([x, skips])
+    x = UpBlock(64, block_depth=2, noise_emb=noise_emb)([x, skips])
+    x = UpBlock(32, block_depth=2, noise_emb=noise_emb)([x, skips])
 
     # Output
     x = layers.Conv2D(CHANNELS, kernel_size=1, kernel_initializer="zeros")(x)
