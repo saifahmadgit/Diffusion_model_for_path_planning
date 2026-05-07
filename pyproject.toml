@@ -10,4 +10,6 @@ dependencies = [
     "pyyaml>=6.0",
     "wandb>=0.17",
     "gradio>=4.0",
+    "nvidia-cudnn-cu12>=9.0",
+    "nvidia-cuda-nvcc-cu12>=12.0",
 ]

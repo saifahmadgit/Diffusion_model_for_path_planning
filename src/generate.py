@@ -37,7 +37,8 @@ def resolve_checkpoint(run_dir):
     if os.path.isfile(final):
         return final
     periodic = sorted(
-        f for f in os.listdir(run_dir) if f.startswith("ckpt_ema_epoch")
+        (f for f in os.listdir(run_dir) if f.startswith("ckpt_ema_epoch")),
+        key=lambda f: int(f.replace("ckpt_ema_epoch", "").replace(".weights.h5", ""))
     )
     if periodic:
         return os.path.join(run_dir, periodic[-1])
