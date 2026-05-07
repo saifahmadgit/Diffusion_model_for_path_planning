@@ -121,4 +121,5 @@ with gr.Blocks(title="PathForge") as app:
     )
 
 if __name__ == "__main__":
+    _get_model()
     app.launch(share=True)
