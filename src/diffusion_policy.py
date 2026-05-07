@@ -168,11 +168,12 @@ class DiffusionModel(models.Model):
         # normalize both to [-1, 1] so they are on the same scale when concatenated
         condition = condition * 2.0 - 1.0
         target = target * 2.0 - 1.0
+        batch_size = tf.shape(target)[0]
         # noise generation, at other end of original image, complete noise, it is also the output ground truth which network learns to predict
-        noises = tf.random.normal(shape=(BATCH_SIZE, IMAGE_SIZE, IMAGE_SIZE, CHANNELS))
+        noises = tf.random.normal(shape=(batch_size, IMAGE_SIZE, IMAGE_SIZE, CHANNELS))
         # random number between 0 to 1 to decide how much noise to add, this goes to scheduler
         diffusion_times = tf.random.uniform(
-            shape=(BATCH_SIZE, 1, 1, 1), minval=0.0, maxval=1.0
+            shape=(batch_size, 1, 1, 1), minval=0.0, maxval=1.0
         )
         # getting noise rates and signal rates by inputting random time (0,1)
         noise_rates, signal_rates = self.diffusion_schedule(diffusion_times)
@@ -198,9 +199,10 @@ class DiffusionModel(models.Model):
         condition, target = data
         condition = condition * 2.0 - 1.0
         target = target * 2.0 - 1.0
-        noises = tf.random.normal(shape=(BATCH_SIZE, IMAGE_SIZE, IMAGE_SIZE, CHANNELS))
+        batch_size = tf.shape(target)[0]
+        noises = tf.random.normal(shape=(batch_size, IMAGE_SIZE, IMAGE_SIZE, CHANNELS))
         diffusion_times = tf.random.uniform(
-            shape=(BATCH_SIZE, 1, 1, 1), minval=0.0, maxval=1.0
+            shape=(batch_size, 1, 1, 1), minval=0.0, maxval=1.0
         )
         noise_rates, signal_rates = self.diffusion_schedule(diffusion_times)
         noisy_images = signal_rates * target + noise_rates * noises
