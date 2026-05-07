@@ -20,8 +20,9 @@ OBSTACLE_MAX_W = 32  # obstacle max width
 OBSTACLE_MIN_H = 16  # obstacle min height
 OBSTACLE_MAX_H = 32  # obstacle max height
 OBSTACLE_MIN_CENTER_DIST = 40  # min distance between obstacle centers
-MIN_START_GOAL_DIST = 30  # manhattan dist between start and goal
-PATH_LINE_WIDTH = 8  # pixel width of drawn path
+MIN_START_GOAL_DIST = 50  # manhattan dist between start and goal
+PATH_LINE_WIDTH = 12  # pixel width of drawn path
+MARKER_SIZE = 12      # pixel size of start/goal markers (square)
 ROBOT_RADIUS = PATH_LINE_WIDTH // 2  # obstacle inflation radius for C-space planning
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 SEED = 42
@@ -78,8 +79,13 @@ def inflate_obstacles(grid, radius):
 
 
 def sample_free_cell(grid):
-    """Pick a random free (non-obstacle) cell."""
-    free = np.argwhere(grid == 0)
+    """Pick a random free (non-obstacle) cell with enough margin for the marker."""
+    margin = MARKER_SIZE - 1
+    free = np.argwhere(
+        (grid == 0) &
+        (np.arange(MAP_SIZE)[:, None] <= MAP_SIZE - 1 - margin) &
+        (np.arange(MAP_SIZE)[None, :] <= MAP_SIZE - 1 - margin)
+    )
     idx = random.randint(0, len(free) - 1)
     return tuple(free[idx])  # (row, col)
 
@@ -199,16 +205,15 @@ def render_condition(grid, start, goal):
     for r in range(MAP_SIZE):
         for c in range(MAP_SIZE):
             if grid[r, c] == 1:
-                if sr <= r <= sr + 7 and sc <= c <= sc + 7:
+                if sr <= r <= sr + MARKER_SIZE - 1 and sc <= c <= sc + MARKER_SIZE - 1:
                     continue
-                if gr <= r <= gr + 7 and gc <= c <= gc + 7:
+                if gr <= r <= gr + MARKER_SIZE - 1 and gc <= c <= gc + MARKER_SIZE - 1:
                     continue
                 draw.point((c, r), fill=COLOR_OBSTACLE)
 
-    # 8x8 block for visibility; A* uses the exact pixel
     def draw_marker(rc, color):
         r, c = rc
-        draw.rectangle([(c, r), (c + 7, r + 7)], fill=color)
+        draw.rectangle([(c, r), (c + MARKER_SIZE - 1, r + MARKER_SIZE - 1)], fill=color)
 
     draw_marker(start, COLOR_START)
     draw_marker(goal, COLOR_GOAL)

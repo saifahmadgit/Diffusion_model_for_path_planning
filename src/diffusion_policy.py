@@ -47,9 +47,7 @@ def ResidualBlock(width, noise_emb):
         x = layers.BatchNormalization(center=False, scale=False)(x)
         x = layers.Conv2D(width, kernel_size=3, padding="same", activation=activations.swish)(x)
 
-        # project noise embedding from 32 dims to match this block's channel width
-        # noise_emb shape: (batch, 1, 1, 32) → after Dense: (batch, 1, 1, width)
-        # adding (batch, 1, 1, width) to (batch, H, W, width) broadcasts across H and W
+        # dense layer is to mathc the dimesion so that it can be added
         noise_proj = layers.Dense(width)(noise_emb)
         x = layers.Add()([x, noise_proj])
 
