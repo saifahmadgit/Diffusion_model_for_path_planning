@@ -46,17 +46,17 @@ Edit the parameters block at the top of `generate_data.py` to change grid size, 
 
 ## Results
 
-The model was trained for 225 epochs. The results below show the condition map (input), the generated path, and the ground truth side by side.
+The model was trained for 75 epochs. The results below show the condition map (input), the generated path, and the ground truth side by side.
 
 In these two examples, the model generates a valid path from the green start to the red goal while avoiding all obstacles, though the exact route differs from the ground truth:
 
-![comparison_004](src/samples/225_epochs/comparison_004.png)
+![comparison_004](src/samples/75_epochs/comparison_004.png)
 
-![comparison_007](src/samples/225_epochs/comparison_007.png)
+![comparison_007](src/samples/75_epochs/comparison_007.png)
 
 In this example, the generated path closely matches the ground truth:
 
-![comparison_009](src/samples/225_epochs/comparison_009.png)
+![comparison_009](src/samples/75_epochs/comparison_009.png)
 
 Overall, the model has learned the task: given a map, it reliably generates a path that connects the start and goal while avoiding obstacles.
 
