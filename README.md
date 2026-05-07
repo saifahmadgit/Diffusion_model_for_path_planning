@@ -69,15 +69,25 @@ Overall, the model has learned the task: given a map, it reliably generates a pa
 
 ## Extra: Web-based GUI
 
-A Gradio web interface is included for interactive inference. Upload a condition map, adjust the number of diffusion steps and samples, and click **Generate**:
+A Gradio web interface is included for interactive inference.
 
 ```bash
 python src/app.py
 ```
 
-The app loads the latest available checkpoint automatically and displays all generated path samples side by side in the browser.
+The app loads the checkpoint automatically. Once running, it prints two URLs:
 
-If running on a remote server, the app can still be accessed from a local machine. Gradio will print a public URL in the terminal (e.g. `https://xxxxxxxxxxxx.gradio.live`) that can be opened in any browser. The link is valid for 72 hours.
+```
+Running on local URL:  http://127.0.0.1:7861
+Running on public URL: https://xxxxxxxxxxxx.gradio.live
+```
+
+- **Local** (`127.0.0.1`): only works if you are on the same machine.
+- **Public** (`gradio.live`): works from any browser, including your laptop. Use this when running on a remote server over SSH.
+
+Upload a condition map (gray background, black obstacles, green start block, red goal block), adjust the diffusion steps and number of samples, and click **Generate**. The results are displayed side by side in the browser.
+
+> **Note:** On shared servers, `/tmp/gradio/` may have permission issues. The app works around this automatically by using `~/.gradio_tmp` instead.
 
 ---
 
