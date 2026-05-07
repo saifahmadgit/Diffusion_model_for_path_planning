@@ -9,4 +9,5 @@ dependencies = [
     "tensorflow>=2.13",
     "pyyaml>=6.0",
     "wandb>=0.17",
+    "gradio>=4.0",
 ]
