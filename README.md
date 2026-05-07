@@ -48,7 +48,7 @@ Edit the parameters block at the top of `generate_data.py` to change grid size, 
 
 The model was trained for 225 epochs. The results below show the condition map (input), the generated path, and the ground truth side by side.
 
-In these two examples, the model generates a valid path from the green start to the red goal while avoiding all obstacles — though the exact route differs from the ground truth:
+In these two examples, the model generates a valid path from the green start to the red goal while avoiding all obstacles, though the exact route differs from the ground truth:
 
 ![comparison_004](src/samples/225_epochs/comparison_004.png)
 
@@ -76,6 +76,6 @@ The app loads the latest available checkpoint automatically and displays all gen
 
 ## Difficulties & Solutions
 
-Initially, the model failed to generate valid paths whenever the start and goal markers were far apart — it would only produce reasonable outputs when the two markers were nearly adjacent. The root cause was that standard convolutions capture only local spatial relationships, so the model struggled to relate the green and red pixels when they were distant from each other.
+Initially, the model failed to generate valid paths whenever the start and goal markers were far apart. It would only produce reasonable outputs when the two markers were nearly adjacent. The root cause was that standard convolutions capture only local spatial relationships, so the model struggled to relate the green and red pixels when they were distant from each other.
 
-To address this, attention layers were added at the bottleneck and at the encoder and decoder layers immediately surrounding it. Attention allows the model to learn the relative importance of any two spatial locations regardless of distance, enabling it to connect far-apart start and goal positions. Attention was intentionally not added to every layer, since that would significantly increase computational cost — adding it selectively at the bottleneck and the adjacent encoder/decoder layers was sufficient to resolve the issue.
+To address this, attention layers were added at the bottleneck and at the encoder and decoder layers immediately surrounding it. Attention allows the model to learn the relative importance of any two spatial locations regardless of distance, enabling it to connect far-apart start and goal positions. Attention was intentionally not added to every layer, since that would significantly increase computational cost. Adding it selectively at the bottleneck and the adjacent encoder/decoder layers was sufficient to resolve the issue.
