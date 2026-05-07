@@ -1,3 +1,4 @@
+import argparse
 import os
 from datetime import datetime
 
@@ -24,6 +25,13 @@ from config import (
 from diffusion_policy import DiffusionModel
 
 
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE,
+                        help=f"Batch size (default: {BATCH_SIZE} from config)")
+    return parser.parse_args()
+
+
 def configure_gpu():
     gpus = tf.config.list_physical_devices("GPU")
     for gpu in gpus:
@@ -43,7 +51,7 @@ def load_pair(cond_path, tgt_path):
     return condition, target
 
 
-def build_dataset():
+def build_dataset(batch_size):
     # returns tensorflow pipeline object which has information of how to parse through data in batches when iterated over
     cond_paths = sorted(tf.io.gfile.glob(COND_DIR + "/*.png"))
     tgt_paths = sorted(tf.io.gfile.glob(DATA_DIR + "/*.png"))
@@ -52,7 +60,7 @@ def build_dataset():
     dataset = tf.data.Dataset.from_tensor_slices((cond_paths, tgt_paths))
     dataset = dataset.shuffle(n, seed=42)
     dataset = dataset.map(load_pair, num_parallel_calls=4)
-    dataset = dataset.batch(BATCH_SIZE, drop_remainder=True)
+    dataset = dataset.batch(batch_size, drop_remainder=True)
     dataset = dataset.prefetch(4)
     return dataset, n
 
@@ -72,12 +80,15 @@ class EpochCheckpoint(tf.keras.callbacks.Callback):
 
 
 def main():
+    args = parse_args()
+    batch_size = args.batch_size
+
     configure_gpu()
 
     wandb.init(
         project="diffusion-path-planning",
         config={
-            "batch_size": BATCH_SIZE,
+            "batch_size": batch_size,
             "epochs": EPOCHS,
             "learning_rate": LEARNING_RATE,
             "weight_decay": WEIGHT_DECAY,
@@ -93,7 +104,7 @@ def main():
     run_dir = os.path.join(CHECKPOINT_DIR, datetime.now().strftime("%Y%m%d_%H%M%S"))
     os.makedirs(run_dir, exist_ok=True)
 
-    dataset, n_samples = build_dataset()
+    dataset, n_samples = build_dataset(batch_size)
 
     ddm = DiffusionModel()
 

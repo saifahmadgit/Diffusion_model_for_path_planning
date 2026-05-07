@@ -27,7 +27,11 @@ source .venv/bin/activate
 python src/train.py
 ```
 
-Checkpoints are saved to `src/checkpoints/<run_timestamp>/` every 25 epochs.
+Checkpoints are saved to `src/checkpoints/<run_timestamp>/` every 25 epochs. If you are on a machine with limited GPU memory, reduce the batch size:
+
+```bash
+python src/train.py --batch-size 8
+```
 
 **5. Generate**
 ```bash
