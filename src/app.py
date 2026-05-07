@@ -14,6 +14,8 @@ _SRC = os.path.dirname(os.path.abspath(__file__))
 if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
+os.environ.setdefault("GRADIO_TEMP_DIR", os.path.join(os.path.expanduser("~"), ".gradio_tmp"))
+
 from config import CHECKPOINT_DIR, CHANNELS, IMAGE_SIZE
 from diffusion_policy import DiffusionModel
 
