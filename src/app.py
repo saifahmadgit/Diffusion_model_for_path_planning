@@ -24,10 +24,6 @@ def _find_checkpoint():
     if not os.path.isdir(CHECKPOINT_DIR):
         raise FileNotFoundError(f"Checkpoint directory not found: {CHECKPOINT_DIR}")
 
-    final_top = os.path.join(CHECKPOINT_DIR, "ema_network_final.weights.h5")
-    if os.path.isfile(final_top):
-        return final_top
-
     runs = sorted(
         (d for d in os.listdir(CHECKPOINT_DIR)
          if os.path.isdir(os.path.join(CHECKPOINT_DIR, d))),
