@@ -19,6 +19,7 @@ cd Diffusion_model_for_path_planning
 **3. Install dependencies** (requires [uv](https://github.com/astral-sh/uv))
 ```bash
 uv sync
+source .venv/bin/activate
 ```
 
 **4. Train**
