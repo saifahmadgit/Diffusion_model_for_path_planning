@@ -21,6 +21,7 @@ from config import (
     MAX_SIGNAL_RATE,
     EMA,
     IMAGE_SIZE,
+    USE_WANDB,
 )
 from diffusion_policy import DiffusionModel
 
@@ -85,21 +86,22 @@ def main():
 
     configure_gpu()
 
-    wandb.init(
-        project="diffusion-path-planning",
-        config={
-            "batch_size": batch_size,
-            "epochs": EPOCHS,
-            "learning_rate": LEARNING_RATE,
-            "weight_decay": WEIGHT_DECAY,
-            "image_size": IMAGE_SIZE,
-            "channels": CHANNELS,
-            "diffusion_steps": DIFFUSION_STEPS,
-            "min_signal_rate": MIN_SIGNAL_RATE,
-            "max_signal_rate": MAX_SIGNAL_RATE,
-            "ema": EMA,
-        },
-    )
+    if USE_WANDB:
+        wandb.init(
+            project="diffusion-path-planning",
+            config={
+                "batch_size": batch_size,
+                "epochs": EPOCHS,
+                "learning_rate": LEARNING_RATE,
+                "weight_decay": WEIGHT_DECAY,
+                "image_size": IMAGE_SIZE,
+                "channels": CHANNELS,
+                "diffusion_steps": DIFFUSION_STEPS,
+                "min_signal_rate": MIN_SIGNAL_RATE,
+                "max_signal_rate": MAX_SIGNAL_RATE,
+                "ema": EMA,
+            },
+        )
 
     run_dir = os.path.join(CHECKPOINT_DIR, datetime.now().strftime("%Y%m%d_%H%M%S"))
     os.makedirs(run_dir, exist_ok=True)
@@ -111,15 +113,17 @@ def main():
     optimizer = optimizers.AdamW(learning_rate=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
     ddm.compile(optimizer=optimizer, loss=losses.MeanAbsoluteError())
 
-    callbacks = [
-        WandbMetricsLogger(log_freq=10),
-        EpochCheckpoint(run_dir),
-    ]
+    callbacks = [EpochCheckpoint(run_dir)]
+    if USE_WANDB:
+        callbacks.insert(0, WandbMetricsLogger(log_freq=10))
+
     ddm.fit(dataset, epochs=EPOCHS, callbacks=callbacks, verbose=1)
 
     ddm.network.save_weights(os.path.join(run_dir, "network_final.weights.h5"))
     ddm.ema_network.save_weights(os.path.join(run_dir, "ema_network_final.weights.h5"))
-    wandb.finish()
+
+    if USE_WANDB:
+        wandb.finish()
 
 
 if __name__ == "__main__":

@@ -33,5 +33,7 @@ DIFFUSION_STEPS = cfg["diffusion"]["diffusion_steps"]
 
 NOISE_EMBEDDING_SIZE = cfg["unet"]["noise_embedding_size"]
 
+USE_WANDB = cfg["logging"]["wandb"]
+
 LEARNING_RATE = cfg["training"]["learning_rate"]
 WEIGHT_DECAY = cfg["training"]["weight_decay"]
