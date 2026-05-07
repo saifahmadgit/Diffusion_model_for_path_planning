@@ -2,47 +2,38 @@
 
 Image-conditioned diffusion model that generates collision-free paths on 2D grid maps. Given a map with a start (green) and goal (red), the model generates the path (blue).
 
-## Setup
+## Quickstart
 
-Requires [uv](https://github.com/astral-sh/uv).
-
+**1. Clone the repo**
 ```bash
 git clone <repo-url>
+```
+
+**2. Enter the directory**
+```bash
 cd Diffusion_model_for_path_planning
+```
+
+**3. Install dependencies** (requires [uv](https://github.com/astral-sh/uv))
+```bash
 uv sync
 ```
 
-## Train
-
+**4. Train**
 ```bash
-cd src
-python train.py
+python src/train.py
 ```
 
-Checkpoints are saved to `src/checkpoints/<run_timestamp>/` every 25 epochs and at the end of training.
+Checkpoints are saved to `src/checkpoints/<run_timestamp>/` every 25 epochs.
 
-## Generate
-
+**5. Generate**
 ```bash
-cd src
-python generate.py -c <run_timestamp>
+python src/generate.py --checkpoint <run_timestamp>
 ```
 
-Omit `-c` to list available checkpoints.
+Omit `--checkpoint` to list available runs. Use `--num-images N` to control how many samples are generated (default: 10). Output is saved to `src/samples/<timestamp>/` as side-by-side `comparison_000.png … comparison_NNN.png` (Condition | Generated | Ground Truth).
 
-**Options**
-
-| Flag | Short | Default | Description |
-|------|-------|---------|-------------|
-| `--checkpoint` | `-c` | — | Run folder name (e.g. `20260505_143021`) or absolute path to a `.h5` file |
-| `--num-images` | `-n` | `10` | Number of images to generate |
-
-Output is saved to `src/samples/<timestamp>/` as `comparison_000.png … comparison_NNN.png`, each showing **Condition → Generated → Ground Truth** side by side.
-
-## Data generation
-
-To regenerate the dataset:
-
+**6. Regenerate dataset**
 ```bash
 python data_generation/generate_data.py
 ```
