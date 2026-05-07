@@ -21,27 +21,10 @@ _model = None
 
 
 def _find_checkpoint():
-    if not os.path.isdir(CHECKPOINT_DIR):
-        raise FileNotFoundError(f"Checkpoint directory not found: {CHECKPOINT_DIR}")
-
-    runs = sorted(
-        (d for d in os.listdir(CHECKPOINT_DIR)
-         if os.path.isdir(os.path.join(CHECKPOINT_DIR, d))),
-        reverse=True,
-    )
-    for run in runs:
-        run_dir = os.path.join(CHECKPOINT_DIR, run)
-        final = os.path.join(run_dir, "ema_network_final.weights.h5")
-        if os.path.isfile(final):
-            return final
-        periodic = sorted(
-            (f for f in os.listdir(run_dir) if f.startswith("ckpt_ema_epoch")),
-            key=lambda f: int(f.replace("ckpt_ema_epoch", "").replace(".weights.h5", ""))
-        )
-        if periodic:
-            return os.path.join(run_dir, periodic[-1])
-
-    raise FileNotFoundError(f"No EMA checkpoint found under {CHECKPOINT_DIR}")
+    ckpt = os.path.join(CHECKPOINT_DIR, "20260507_021059", "ckpt_ema_epoch75.weights.h5")
+    if not os.path.isfile(ckpt):
+        raise FileNotFoundError(f"Checkpoint not found: {ckpt}")
+    return ckpt
 
 
 def _get_model():
