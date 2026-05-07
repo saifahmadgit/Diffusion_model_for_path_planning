@@ -24,4 +24,4 @@ unet:
   noise_embedding_size: 32
 
 logging:
-  wandb: true
+  wandb: false

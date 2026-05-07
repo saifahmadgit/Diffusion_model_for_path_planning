@@ -77,6 +77,8 @@ python src/app.py
 
 The app loads the latest available checkpoint automatically and displays all generated path samples side by side in the browser.
 
+If running on a remote server, the app can still be accessed from a local machine. Gradio will print a public URL in the terminal (e.g. `https://xxxxxxxxxxxx.gradio.live`) that can be opened in any browser. The link is valid for 72 hours.
+
 ---
 
 ## Difficulties & Solutions

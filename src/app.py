@@ -120,4 +120,4 @@ with gr.Blocks(title="PathForge") as app:
     )
 
 if __name__ == "__main__":
-    app.launch()
+    app.launch(share=True)
