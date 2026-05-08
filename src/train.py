@@ -34,12 +34,14 @@ def parse_args():
 
 
 def configure_gpu():
+    """Enable memory growth on all GPUs to avoid pre-allocating the full VRAM."""
     gpus = tf.config.list_physical_devices("GPU")
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
 
 
 def load_image(path):
+    """Load a PNG from disk and normalize pixel values to [0, 1]."""
     raw = tf.io.read_file(path)
     img = tf.image.decode_png(raw, channels=CHANNELS)
     img = tf.cast(img, tf.float32) / 255.0
@@ -47,12 +49,14 @@ def load_image(path):
 
 
 def load_pair(cond_path, tgt_path):
+    """Load a matched condition and target image pair."""
     condition = load_image(cond_path)
     target = load_image(tgt_path)
     return condition, target
 
 
 def build_dataset(batch_size):
+    """Build a shuffled, batched, prefetched tf.data pipeline from the condition/target image dirs."""
     # returns tensorflow pipeline object which has information of how to parse through data in batches when iterated over
     cond_paths = sorted(tf.io.gfile.glob(COND_DIR + "/*.png"))
     tgt_paths = sorted(tf.io.gfile.glob(DATA_DIR + "/*.png"))

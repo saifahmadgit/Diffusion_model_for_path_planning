@@ -25,6 +25,7 @@ LABEL_FONT_SIZE = 14
 
 
 def list_runs(checkpoint_dir):
+    """Return sorted list of run folder names found in checkpoint_dir."""
     runs = sorted(
         d for d in os.listdir(checkpoint_dir)
         if os.path.isdir(os.path.join(checkpoint_dir, d))
@@ -33,6 +34,7 @@ def list_runs(checkpoint_dir):
 
 
 def resolve_checkpoint(run_dir):
+    """Return the best available EMA checkpoint path in a run directory."""
     final = os.path.join(run_dir, "ema_network_final.weights.h5")
     if os.path.isfile(final):
         return final
@@ -66,12 +68,14 @@ def parse_args():
 
 
 def load_image_tf(path):
+    """Load a PNG from disk and normalize it to [-1, 1]."""
     raw = tf.io.read_file(path)
     img = tf.image.decode_png(raw, channels=CHANNELS)
     return tf.cast(img, tf.float32) / 127.5 - 1.0
 
 
 def load_images_random(cond_dir, target_dir, num_images):
+    """Randomly sample num_images paired condition and target images from disk."""
     all_files = sorted(
         f for f in os.listdir(cond_dir) if f.lower().endswith(".png")
     )
@@ -99,7 +103,7 @@ def _make_label_bar(width, label, bg=(240, 240, 240), fg=(30, 30, 30)):
 
 
 def save_comparison(cond_img, gen_img, gt_img, path):
-    """Save a horizontal [Condition | Generated | Ground Truth] composite with labels."""
+    """Save a labeled Condition | Generated | Ground Truth composite image to disk."""
     panels = [
         ("Condition", cond_img),
         ("Generated", gen_img),

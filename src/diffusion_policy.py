@@ -13,6 +13,7 @@ from config import (
 
 
 def offset_cosine_diffusion_schedule(diffusion_times):
+    """Map diffusion time in [0, 1] to noise and signal rates via a cosine schedule."""
     min_signal_rate = MIN_SIGNAL_RATE
     max_signal_rate = MAX_SIGNAL_RATE
     start_angle = tf.acos(max_signal_rate)
@@ -27,6 +28,7 @@ def offset_cosine_diffusion_schedule(diffusion_times):
 
 
 def sinusoidal_embedding(x):
+    """Encode a scalar noise variance into a sinusoidal frequency embedding."""
     frequencies = tf.exp(
         tf.linspace(tf.math.log(1.0), tf.math.log(1000.0), NOISE_EMBEDDING_SIZE // 2)
     )
@@ -38,6 +40,7 @@ def sinusoidal_embedding(x):
 
 
 def ResidualBlock(width, noise_emb):
+    """Conv residual block that injects the noise embedding into every feature map."""
     def apply(x):
         input_width = x.shape[3]
         if input_width == width:
@@ -59,6 +62,7 @@ def ResidualBlock(width, noise_emb):
 
 
 def AttentionBlock(num_heads=4):
+    """Self-attention block that captures long-range spatial dependencies."""
     def apply(x):
         _, H, W, C = x.shape
         h = layers.LayerNormalization()(x)
@@ -71,6 +75,7 @@ def AttentionBlock(num_heads=4):
 
 
 def DownBlock(width, block_depth, noise_emb, use_attention=False, num_heads=4):
+    """Encoder block: applies residual (and optionally attention) layers then downsamples."""
     def apply(x):
         x, skips = x
         for _ in range(block_depth):
@@ -85,6 +90,7 @@ def DownBlock(width, block_depth, noise_emb, use_attention=False, num_heads=4):
 
 
 def UpBlock(width, block_depth, noise_emb, use_attention=False, num_heads=4):
+    """Decoder block: upsamples then applies residual (and optionally attention) layers with skip connections."""
     def apply(x):
         x, skips = x
         x = layers.UpSampling2D(size=2, interpolation="bilinear")(x)
@@ -99,6 +105,7 @@ def UpBlock(width, block_depth, noise_emb, use_attention=False, num_heads=4):
 
 
 def build_unet():
+    """Build the noise-conditioned U-Net that predicts noise from a noisy image and condition map."""
     # Input 1: noisy target (3ch) concatenated with condition image (3ch) = 6ch
     noisy_images = layers.Input(shape=(IMAGE_SIZE, IMAGE_SIZE, CHANNELS * 2))
     x = layers.Conv2D(32, kernel_size=1)(noisy_images)
@@ -132,6 +139,8 @@ def build_unet():
 
 
 class DiffusionModel(models.Model):
+    """Denoising diffusion model with an EMA copy of the network for stable inference."""
+
     def __init__(self):
         super().__init__()
 
@@ -141,6 +150,7 @@ class DiffusionModel(models.Model):
         self.diffusion_schedule = offset_cosine_diffusion_schedule
 
     def compile(self, **kwargs):
+        """Set up optimizer, loss, and metrics."""
         super().compile(**kwargs)
         self.noise_loss_tracker = metrics.Mean(name="n_loss")
 
@@ -154,6 +164,7 @@ class DiffusionModel(models.Model):
         return tf.clip_by_value(images, 0.0, 1.0)
 
     def denoise(self, noisy_images, noise_rates, signal_rates, training, condition):
+        """Predict noise and clean image from a noisy image at a given noise level."""
         if training:
             network = self.network
         else:
@@ -164,6 +175,7 @@ class DiffusionModel(models.Model):
         return pred_noises, pred_images
 
     def train_step(self, data):
+        """Single training step: corrupt target, predict noise, update weights and EMA."""
         condition, target = data
         # normalize both to [-1, 1] so they are on the same scale when concatenated
         condition = condition * 2.0 - 1.0
@@ -196,6 +208,7 @@ class DiffusionModel(models.Model):
         return {m.name: m.result() for m in self.metrics}
 
     def test_step(self, data):
+        """Validation step: compute noise prediction loss without updating weights."""
         condition, target = data
         condition = condition * 2.0 - 1.0
         target = target * 2.0 - 1.0
@@ -214,6 +227,7 @@ class DiffusionModel(models.Model):
         return {m.name: m.result() for m in self.metrics}
 
     def generate(self, condition_images, diffusion_steps, initial_noise=None):
+        """Run reverse diffusion from pure noise to a generated path image."""
         num_images = condition_images.shape[0]
         if initial_noise is None:
             initial_noise = tf.random.normal(
@@ -224,6 +238,7 @@ class DiffusionModel(models.Model):
         return generated_images, snapshots
 
     def reverse_diffusion(self, initial_noise, condition_images, diffusion_steps):
+        """Iteratively denoise from t=1 to t=0 using DDPM sampling."""
         num_images = initial_noise.shape[0]
         step_size = 1.0 / diffusion_steps
         current_images = initial_noise

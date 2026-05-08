@@ -23,6 +23,7 @@ _model = None
 
 
 def _find_checkpoint():
+    """Return the hardcoded EMA checkpoint path included in the repo."""
     ckpt = os.path.join(CHECKPOINT_DIR, "20260507_021059", "ckpt_ema_epoch75.weights.h5")
     if not os.path.isfile(ckpt):
         raise FileNotFoundError(f"Checkpoint not found: {ckpt}")
@@ -30,6 +31,7 @@ def _find_checkpoint():
 
 
 def _get_model():
+    """Load the model once and cache it globally for the lifetime of the app."""
     global _model
     if _model is None:
         ckpt = _find_checkpoint()
@@ -41,11 +43,13 @@ def _get_model():
 
 
 def _preprocess(pil_img: Image.Image) -> np.ndarray:
+    """Resize and normalize a PIL image to [-1, 1] for model input."""
     img = pil_img.convert("RGB").resize((IMAGE_SIZE, IMAGE_SIZE), Image.LANCZOS)
     return np.array(img, dtype=np.float32) / 127.5 - 1.0
 
 
 def _to_pil(arr: np.ndarray) -> Image.Image:
+    """Convert a [0, 1] float array to a uint8 PIL image."""
     return Image.fromarray((np.clip(arr, 0.0, 1.0) * 255).astype(np.uint8))
 
 
@@ -54,6 +58,7 @@ def generate_sprites(
     diffusion_steps: int,
     num_samples: int,
 ) -> Image.Image:
+    """Run diffusion inference and return all samples as a single horizontal strip."""
     if input_img is None:
         return None
 
