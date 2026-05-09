@@ -8,7 +8,7 @@ An image-conditioned diffusion model that generates collision-free paths on 2D g
 
 **1. Clone the repo**
 ```bash
-git clone <repo-url>
+git clone git@github.com:saifahmadgit/Diffusion_model_for_path_planning.git
 ```
 
 **2. Enter the directory**
